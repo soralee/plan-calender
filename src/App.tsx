@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 type Assignee = "나" | "배우자" | "함께";
 type Kind = "일정" | "할 일";
@@ -44,7 +44,7 @@ export default function App() {
   const doneCount = monthEntries.filter(e => e.kind === "할 일" && e.done).length;
   const openNew = (date = selectedDate) => { setEditing(null); setForm({ title: "", date, time: "", kind: "일정", assignee: "함께", category: "이사", note: "" }); setModal(true); };
   const openEdit = (e: Entry) => { setEditing(e); setForm({ title: e.title, date: e.date, time: e.time || "", kind: e.kind, assignee: e.assignee, category: e.category, note: e.note || "" }); setModal(true); };
-  const save = (ev: React.FormEvent) => {
+  const save = (ev: FormEvent) => {
     ev.preventDefault(); if (!form.title.trim()) return;
     const next: Entry = { ...form, title: form.title.trim(), id: editing?.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())), done: editing?.done || false };
     setEntries(prev => editing ? prev.map(e => e.id === editing.id ? next : e) : [...prev, next]);
