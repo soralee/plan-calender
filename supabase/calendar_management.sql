@@ -132,3 +132,16 @@ $$;
 
 revoke all on function public.update_household_member_names(text, text) from public;
 grant execute on function public.update_household_member_names(text, text) to authenticated;
+
+
+-- Use neutral, randomly selected display-name defaults instead of role labels.
+alter table public.households
+  alter column member_one_name set default
+    (array['라임','구름','보리','하루','토리','단추','초코','유자'])[floor(random() * 8 + 1)],
+  alter column member_two_name set default
+    (array['모카','별이','두부','나루','루미','콩이','바닐라','호두'])[floor(random() * 8 + 1)];
+
+-- Migrate untouched legacy defaults to neutral names for existing calendars.
+update public.households
+set member_one_name = '라임', member_two_name = '모카'
+where member_one_name = '나' and member_two_name = '배우자';
