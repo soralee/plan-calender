@@ -67,7 +67,6 @@ export default function App() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [form, setForm] = useState({ title: "", date: dateKey(today), time: "", kind: "일정" as Kind, assignee: "함께" as Assignee, category: "이사", note: "" });
-  const importRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { /* private browsing or storage disabled */ }
   }, [entries]);
@@ -271,7 +270,7 @@ export default function App() {
           <button className="wide-add" onClick={()=>openNew()}>＋ <span>이 날짜에 계획 추가</span></button>
         </aside>
       </section>
-      <footer className="footer"><span>둘이 함께 채워가는 작은 기록</span><span>저장 위치: 클라우드 <i>·</i> {household.name} <i>·</i> 기기 간 동기화 사용 중</span></footer>
+      <footer className="footer"><span>둘이 함께 채워가는 작은 기록</span><span>저장 위치: 클라우드 <i>·</i> {household?.name} <i>·</i> 기기 간 동기화 사용 중</span></footer>
     </main>
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false);}}><form className="entry-modal" onSubmit={save}><div className="modal-heading"><div><div className="eyebrow">{editing?"EDIT YOUR PLAN":"MAKE A PLAN"}</div><h2>{editing?"계획 수정하기":"새 계획 추가하기"}</h2></div><button type="button" className="close-modal" onClick={()=>setModal(false)} aria-label="닫기">×</button></div>
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
