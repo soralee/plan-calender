@@ -635,3 +635,20 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .welcome-art{margin-right:8px}
 }
+
+
+/* Reserve real right-side space for the welcome illustration; keep the art inside its box */
+.welcome-row{padding-right:24px}
+.welcome-art{margin-right:0;right:0;flex:0 0 205px}
+@media(max-width:900px){
+  .welcome-row{padding-right:18px}
+  .welcome-art{flex-basis:150px}
+}
+@media(max-width:680px){
+  .welcome-row{padding-right:12px}
+  .welcome-art{flex-basis:110px;margin-right:0;right:auto}
+}
+@media(max-width:360px){
+  .welcome-row{padding-right:8px}
+  .welcome-art{flex-basis:80px;margin-right:0}
+}
