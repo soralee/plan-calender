@@ -40,7 +40,7 @@ const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
   note: entry.note || null,
   created_by: userId
 });
-type Household = { id: string; name: string; login_name: string };
+type Household = { id: string; name: string; login_name: string; member_one_name?: string; member_two_name?: string };
 
 export default function App() {
   const [entries, setEntries] = useState<Entry[]>(readLocalEntries);
@@ -58,6 +58,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
+  const [myDisplayName, setMyDisplayName] = useState("나");
+  const [partnerDisplayName, setPartnerDisplayName] = useState("배우자");
   const [settingsPassword, setSettingsPassword] = useState("");
   const [settingsError, setSettingsError] = useState("");
   const [settingsMessage, setSettingsMessage] = useState("");
@@ -94,10 +96,12 @@ export default function App() {
       if (membershipError) { setCloudError("클라우드 설정을 확인해 주세요. Supabase SQL 설정이 완료되었는지 확인해 주세요."); return; }
       if (!membership) { setHousehold(null); return; }
       const { data: home, error: homeError } = await supabase!
-        .from("households").select("id,name,login_name").eq("id", membership.household_id).maybeSingle();
+        .from("households").select("id,name,login_name,member_one_name,member_two_name").eq("id", membership.household_id).maybeSingle();
       if (cancelled) return;
       if (homeError || !home) { setCloudError("공유 캘린더 정보를 불러오지 못했어요."); return; }
       setHousehold(home as Household);
+      setMyDisplayName(home.member_one_name || "나");
+      setPartnerDisplayName(home.member_two_name || "배우자");
     })();
     return () => { cancelled = true; };
   }, [session]);
@@ -235,6 +239,8 @@ export default function App() {
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setHousehold(null); };
   const openSettings = () => {
     setSettingsName(household?.login_name || "");
+    setMyDisplayName(household?.member_one_name || "나");
+    setPartnerDisplayName(household?.member_two_name || "배우자");
     setSettingsPassword("");
     setSettingsError("");
     setSettingsMessage("");
@@ -244,24 +250,32 @@ export default function App() {
     ev.preventDefault();
     if (!supabase || !session || !household) return;
     const nextName = settingsName.trim();
+    const nextMine = myDisplayName.trim();
+    const nextPartner = partnerDisplayName.trim();
     const nameChanged = nextName.toLocaleLowerCase("ko-KR") !== household.login_name.toLocaleLowerCase("ko-KR");
-    if (nameChanged && (nextName.length < 2 || nextName.length > 40)) { setSettingsError("이름은 2~40자로 입력해 주세요."); return; }
+    const membersChanged = nextMine !== (household.member_one_name || "나") || nextPartner !== (household.member_two_name || "배우자");
+    if (nameChanged && (nextName.length < 2 || nextName.length > 40)) { setSettingsError("캘린더 로그인 이름은 2~40자로 입력해 주세요."); return; }
+    if (!nextMine || nextMine.length > 20 || !nextPartner || nextPartner.length > 20) { setSettingsError("두 사람의 이름을 1~20자로 입력해 주세요."); return; }
+    if (nextMine.toLocaleLowerCase("ko-KR") === nextPartner.toLocaleLowerCase("ko-KR")) { setSettingsError("두 사람의 이름은 서로 다르게 입력해 주세요."); return; }
     if (settingsPassword && settingsPassword.length < 8) { setSettingsError("새 비밀번호는 8자 이상 입력해 주세요."); return; }
-    if (!nameChanged && !settingsPassword) { setSettingsError("변경할 이름이나 새 비밀번호를 입력해 주세요."); return; }
+    if (!nameChanged && !settingsPassword && !membersChanged) { setSettingsError("변경할 항목이 없어요."); return; }
     setAuthBusy(true); setSettingsError(""); setSettingsMessage("");
     try {
       if (nameChanged) {
-        // Supabase Auth 이메일은 변경하지 않고, 캘린더의 로그인 이름만 변경합니다.
         const { error: renameError } = await supabase.rpc("rename_household_login", { p_new_login_name: nextName });
         if (renameError) throw renameError;
-        setHousehold({ ...household, name: nextName, login_name: nextName });
+      }
+      if (membersChanged) {
+        const { error: namesError } = await supabase.rpc("update_household_member_names", { p_member_one_name: nextMine, p_member_two_name: nextPartner });
+        if (namesError) throw namesError;
       }
       if (settingsPassword) {
         const { error: passwordError } = await supabase.rpc("update_household_password", { p_password: settingsPassword });
         if (passwordError) throw passwordError;
       }
+      setHousehold({ ...household, ...(nameChanged ? { name: nextName, login_name: nextName } : {}), member_one_name: nextMine, member_two_name: nextPartner });
       setSettingsPassword("");
-      setSettingsMessage("변경사항을 저장했어요. 다른 기기에서도 다음 로그인부터 새 이름과 비밀번호를 사용해 주세요.");
+      setSettingsMessage("변경사항을 저장했어요. 두 사람의 이름은 공유 캘린더에 반영됩니다.");
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : "설정을 변경하지 못했어요.");
     } finally { setAuthBusy(false); }
@@ -371,13 +385,13 @@ export default function App() {
           <div className="panel-heading"><div><div className="eyebrow">YOUR MONTH</div><h2>{monthLabel}</h2></div><div className="month-controls"><button aria-label="이전 달" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1))}>‹</button><button className="today-button" onClick={() => { setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setSelectedDate(dateKey(today)); }}>오늘</button><button aria-label="다음 달" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1))}>›</button></div></div>
           <div className="weekday-row">{["일","월","화","수","목","금","토"].map((d,i)=><div key={d} className={i===0?"sunday":i===6?"saturday":""}>{d}</div>)}</div>
           <div className="calendar-grid">{calendarDays.map((day,i) => { const key=dateKey(day); const items=entries.filter(e=>e.date===key); const sameMonth=day.getMonth()===month.getMonth(); return <button key={key} className={"day-cell "+(!sameMonth?"outside ":"")+(key===selectedDate?"selected ":"")+(key===dateKey(today)?"is-today":"")} onClick={()=>setSelectedDate(key)}><span className={"day-number "+(i%7===0?"sunday":i%7===6?"saturday":"")}>{day.getDate()}</span><span className="day-dots">{items.slice(0,3).map(e=><i key={e.id} title={e.assignee} className={"dot "+(e.assignee==="함께"?"assignee-together":e.assignee==="배우자"?"assignee-partner":"assignee-me")}></i>)}{items.length>3&&<b>+{items.length-3}</b>}</span></button>; })}</div>
-          <div className="calendar-legend assignee-legend"><span><i className="dot assignee-me"></i>나</span><span><i className="dot assignee-partner"></i>배우자</span><span><i className="dot assignee-together"></i>함께</span><span className="legend-note">점 색상으로 담당자를 확인하세요</span></div>
+          <div className="calendar-legend assignee-legend"><span><i className="dot assignee-me"></i>{myDisplayName}</span><span><i className="dot assignee-partner"></i>{partnerDisplayName}</span><span><i className="dot assignee-together"></i>함께</span><span className="legend-note">점 색상으로 담당자를 확인하세요</span></div>
         </div>
         <aside className="day-panel">
           <div className="day-panel-top"><div><div className="eyebrow">YOUR DAY</div><h2>{new Date(selectedDate+"T12:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"})}</h2></div><button className="round-add" onClick={()=>openNew()} aria-label="선택한 날짜에 추가">＋</button></div>
-          <div className="filter-row">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={filter===f?"active":""} onClick={()=>setFilter(f)}>{f}</button>)}</div>
+          <div className="filter-row">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={filter===f?"active":""} onClick={()=>setFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
           <label className="search-box"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="일정이나 할 일 검색"/></label>
-          <div className="entry-list">{dayEntries.length===0?<div className="empty-state"><div className="empty-illustration">☁</div><strong>아직 계획이 없어요</strong><p>작은 계획을 추가해 볼까요?</p><button onClick={()=>openNew()}>＋ 계획 추가하기</button></div>:dayEntries.map(entry=><article className={"entry-card "+(entry.done?"completed":"")} key={entry.id}><div className={"entry-stripe "+categoryClass(entry.category)}></div><div className="entry-content"><div className="entry-meta"><span className={"kind-pill "+(entry.kind==="할 일"?"task":"event")}>{entry.kind}</span><span className="category-label">{entry.category}</span>{entry.time&&<span className="time-label">{entry.time}</span>}</div><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button><div className="entry-footer"><span className={"assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee}</span><div className="entry-actions">{entry.kind==="할 일"&&<button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button>}<button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
+          <div className="entry-list">{dayEntries.length===0?<div className="empty-state"><div className="empty-illustration">☁</div><strong>아직 계획이 없어요</strong><p>작은 계획을 추가해 볼까요?</p><button onClick={()=>openNew()}>＋ 계획 추가하기</button></div>:dayEntries.map(entry=><article className={"entry-card "+(entry.done?"completed":"")} key={entry.id}><div className={"entry-stripe "+categoryClass(entry.category)}></div><div className="entry-content"><div className="entry-meta"><span className={"kind-pill "+(entry.kind==="할 일"?"task":"event")}>{entry.kind}</span><span className="category-label">{entry.category}</span>{entry.time&&<span className="time-label">{entry.time}</span>}</div><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button><div className="entry-footer"><span className={"assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span><div className="entry-actions">{entry.kind==="할 일"&&<button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button>}<button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
           <button className="wide-add" onClick={()=>openNew()}>＋ <span>이 날짜에 계획 추가</span></button>
         </aside>
       </section>
@@ -387,7 +401,7 @@ export default function App() {
       <p className="settings-description">이름을 바꾸면 캘린더 제목과 로그인 이름이 함께 변경돼요. 비밀번호는 변경할 때만 입력하세요.</p>
       {settingsError&&<div className="auth-error">{settingsError}</div>}
       {settingsMessage&&<div className="settings-success">{settingsMessage}</div>}
-      <label className="field-label">캘린더 이름<input required minLength={2} maxLength={40} autoComplete="username" value={settingsName} onChange={e=>setSettingsName(e.target.value)} placeholder="새 캘린더 이름"/></label>
+      <label className="field-label">캘린더 로그인 이름<input required minLength={2} maxLength={40} autoComplete="username" value={settingsName} onChange={e=>setSettingsName(e.target.value)} placeholder="캘린더 로그인 이름"/></label><div className="field-grid"><label className="field-label">첫 번째 사람 이름<input required maxLength={20} value={myDisplayName} onChange={e=>setMyDisplayName(e.target.value)} placeholder="예: 소라"/></label><label className="field-label">두 번째 사람 이름<input required maxLength={20} value={partnerDisplayName} onChange={e=>setPartnerDisplayName(e.target.value)} placeholder="예: 민수"/></label></div><p className="settings-description">담당자 선택과 필터에 표시되는 이름이에요. 기존의 ‘나’는 첫 번째 사람, ‘배우자’는 두 번째 사람에 해당해요.</p>
       <label className="field-label">새 비밀번호 <span className="optional">(선택, 8자 이상)</span><input type="password" autoComplete="new-password" minLength={8} value={settingsPassword} onChange={e=>setSettingsPassword(e.target.value)} placeholder="변경하지 않으려면 비워 두세요"/></label>
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setSettingsOpen(false)}>닫기</button><button type="submit" className="save-button" disabled={authBusy}>{authBusy?"저장 중…":"변경사항 저장"}</button></div>
       <div className="settings-danger"><h3>캘린더 삭제</h3><p>캘린더와 그 안의 모든 일정이 영구 삭제돼요. 삭제하려면 현재 비밀번호를 입력하세요.</p><label className="field-label">현재 비밀번호<input type="password" autoComplete="current-password" value={deletePassword} onChange={e=>setDeletePassword(e.target.value)} placeholder="삭제 확인용 비밀번호"/></label><button type="button" className="delete-calendar-button" disabled={authBusy} onClick={() => void deleteHousehold()}>{authBusy ? "처리 중…" : "캘린더 영구 삭제"}</button></div>
@@ -396,7 +410,7 @@ export default function App() {
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
       <div className="field-grid"><label className="field-label">날짜<input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className="field-label">시간 <span className="optional">(선택)</span><input value={form.time} onChange={e=>setForm({...form,time:e.target.value})} placeholder="예: 10:00"/></label></div>
       <div className="field-label">항목 유형<div className="choice-row">{(["일정","할 일"] as Kind[]).map(k=><button type="button" key={k} className={form.kind===k?"chosen":""} onClick={()=>setForm({...form,kind:k})}>{k==="일정"?"▦":"✓"} {k}</button>)}</div></div>
-      <div className="field-grid"><label className="field-label">담당자<select value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value as Assignee})}><option>함께</option><option>나</option><option>배우자</option></select></label><label className="field-label">카테고리<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select></label></div>
+      <div className="field-grid"><label className="field-label">담당자<select value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value as Assignee})}><option value="함께">함께</option><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option></select></label><label className="field-label">카테고리<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select></label></div>
       <label className="field-label">메모 <span className="optional">(선택)</span><textarea rows={3} maxLength={500} value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="함께 기억할 내용을 적어두세요."/></label>
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setModal(false)}>취소</button><button type="submit" className="save-button">{editing?"변경사항 저장":"계획 저장하기"}</button></div>
     </form></div>}
