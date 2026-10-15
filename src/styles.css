@@ -287,3 +287,26 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:680px){
   .entry-card{padding-left:12px}
 }
+
+
+/* Keep native date pickers inside the add/edit modal on narrow screens */
+.entry-modal input[type="date"]{
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  padding-left:10px;
+  padding-right:8px;
+}
+.entry-modal input[type="date"]::-webkit-date-and-time-value{
+  min-width:0;
+  text-align:left;
+}
+@media(max-width:680px){
+  .entry-modal input[type="date"]{
+    font-size:16px !important;
+    padding-left:9px;
+    padding-right:6px;
+  }
+}
