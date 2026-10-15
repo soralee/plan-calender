@@ -148,3 +148,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 .settings-danger{margin-top:28px;padding-top:22px;border-top:1px solid #f0d7d7}.settings-danger h3{margin:0 0 8px;color:#a33;font-size:15px}.settings-danger p{margin:0 0 14px;color:#8b7777;font-size:13px;line-height:1.6}.delete-calendar-button{width:100%;border:1px solid #d9a6a6;border-radius:10px;background:#fff7f7;color:#a33131;padding:12px 16px;font-weight:600}.delete-calendar-button:disabled{opacity:.6;cursor:wait}
+
+/* Prevent iOS Safari from zooming when form controls receive focus. */
+@media (max-width: 768px) {
+  .field-label input, .field-label select, .field-label textarea,
+  .auth-card input, .auth-card select, .auth-card textarea {
+    font-size: 16px !important;
+  }
+}
