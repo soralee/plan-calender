@@ -368,11 +368,16 @@ export default function App() {
     const lines = bulkImportText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     if (!lines.length) { setBulkImportError("가져올 할 일을 한 줄 이상 붙여 넣어 주세요."); return; }
     const additions: Entry[] = lines.map((line, index) => {
+      // Supported: YYYY-MM-DD | HH:mm | title, YYYY-MM-DD HH:mm | title, or YYYY-MM-DD | title.
+      const threePart = line.match(/^(\d{4}-\d{1,2}-\d{1,2})\s*[|｜、,]\s*(\d{1,2}:\d{2})\s*[|｜、,]\s*(.+)$/);
+      const dateAndTime = line.match(/^(\d{4}-\d{1,2}-\d{1,2})[ T](\d{1,2}:\d{2})\s*[|｜、,]\s*(.+)$/);
       const dated = line.match(/^(\d{4}-\d{1,2}-\d{1,2})\s*[|｜、,]\s*(.+)$/);
-      const title = (dated ? dated[2] : line).trim().replace(/^[-•*✓☐☑]\s*/, "");
-      const rawDate = dated?.[1];
+      const rawDate = threePart?.[1] || dateAndTime?.[1] || dated?.[1];
+      const rawTime = threePart?.[2] || dateAndTime?.[2] || "";
+      const title = (threePart?.[3] || dateAndTime?.[3] || dated?.[2] || line).trim().replace(/^[-•*✓☐☑]\s*/, "");
       const date = rawDate ? (() => { const parts = rawDate.split("-").map(Number); return parts[0] + "-" + pad(parts[1]) + "-" + pad(parts[2]); })() : bulkImportDate;
-      return { id: crypto.randomUUID ? crypto.randomUUID() : "reminder-" + Date.now() + "-" + index, title, date, kind: "할 일" as Kind, assignee: bulkImportAssignee, category: bulkImportCategory, done: false };
+      const validTime = /^([01]?\d|2[0-3]):[0-5]\d$/.test(rawTime) ? rawTime.padStart(5, "0") : undefined;
+      return { id: crypto.randomUUID ? crypto.randomUUID() : "reminder-" + Date.now() + "-" + index, title, date, ...(validTime ? { time: validTime } : {}), kind: "할 일" as Kind, assignee: bulkImportAssignee, category: bulkImportCategory, done: false };
     }).filter(entry => entry.title.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(entry.date));
     if (!additions.length) { setBulkImportError("가져올 할 일과 날짜를 확인해 주세요."); return; }
     setBulkImportBusy(true); setBulkImportError(""); setCloudError("");
@@ -468,7 +473,7 @@ export default function App() {
     </main>
     {bulkImportOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!bulkImportBusy)setBulkImportOpen(false);}}><form className="entry-modal" onSubmit={importReminders}><div className="modal-heading"><div><div className="eyebrow">BULK ADD TASKS</div><h2>미리 알림 일괄 추가</h2></div><button type="button" className="close-modal" onClick={()=>setBulkImportOpen(false)} aria-label="닫기" disabled={bulkImportBusy}>×</button></div>
       <p className="settings-description">아이폰 ‘미리 알림’에서 반복 항목은 제외하고, 할 일 제목을 한 줄에 하나씩 붙여 넣으세요. 기존 일정은 유지되고 새 할 일만 추가돼요.</p>
-      <p className="settings-description">날짜도 지정하려면 <strong>2026-10-25 | 이사 박스 정리</strong>처럼 입력하세요. 날짜가 없는 줄은 아래 기본 날짜로 추가됩니다.</p>
+      <p className="settings-description">날짜와 시간을 지정하려면 <strong>2026-10-29 | 08:00 | 입주 청소</strong> 또는 <strong>2026-10-29 08:00 | 입주 청소</strong>처럼 입력하세요. 날짜만 지정하려면 <strong>2026-10-25 | 이사 박스 정리</strong>처럼 입력하고, 날짜가 없는 줄은 아래 기본 날짜로 추가됩니다.</p>
       {bulkImportError&&<div className="auth-error">{bulkImportError}</div>}
       <label className="field-label">할 일 목록<textarea required rows={8} value={bulkImportText} onChange={e=>setBulkImportText(e.target.value)} placeholder={"예:\n2026-10-25 | 이사 박스 정리\n관리사무소에 연락하기\n전입신고 준비"} /></label>
       <label className="field-label">날짜가 없는 항목의 기본 날짜<input type="date" required value={bulkImportDate} onChange={e=>setBulkImportDate(e.target.value)} /></label>
