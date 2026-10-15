@@ -51,6 +51,8 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "create">("login");
+  const [deletePassword, setDeletePassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -162,6 +164,56 @@ export default function App() {
       setAuthError(error instanceof Error ? error.message : '로그인 중 문제가 발생했어요.');
     } finally { setAuthBusy(false); }
   };
+  const handleCreateHousehold = async (ev: FormEvent) => {
+    ev.preventDefault();
+    if (!supabase) return;
+    const name = authName.trim();
+    if (name.length < 2 || name.length > 40) { setAuthError("캘린더 이름은 2~40자로 입력해 주세요."); return; }
+    if (authPassword.length < 8) { setAuthError("비밀번호는 8자 이상 입력해 주세요."); return; }
+    setAuthBusy(true); setAuthError("");
+    try {
+      const { data: current, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!current.session) {
+        const { error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError) throw new Error("익명 로그인 실패: " + anonError.message);
+      }
+      const { data, error } = await supabase.rpc("create_household_with_password", {
+        p_name: name, p_login_name: name, p_password: authPassword
+      });
+      if (error) throw new Error("캘린더 생성 실패: " + error.message);
+      const home = Array.isArray(data) ? data[0] : data;
+      if (!home?.household_id) throw new Error("새 캘린더 정보를 확인할 수 없어요.");
+      const { data: sessionData, error: refreshedSessionError } = await supabase.auth.getSession();
+      if (refreshedSessionError) throw refreshedSessionError;
+      setSession(sessionData.session);
+      setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name || name });
+      setAuthPassword("");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "캘린더를 만들지 못했어요.");
+    } finally { setAuthBusy(false); }
+  };
+  const deleteHousehold = async () => {
+    if (!supabase || !session || !household) return;
+    if (deletePassword.length < 8) { setSettingsError("삭제를 확인하려면 현재 비밀번호를 8자 이상 입력해 주세요."); return; }
+    if (!window.confirm("정말 이 캘린더를 삭제할까요? 캘린더와 모든 일정이 영구 삭제되며 복구할 수 없습니다.")) return;
+    setAuthBusy(true); setSettingsError(""); setSettingsMessage("");
+    try {
+      const { error } = await supabase.rpc("delete_household_with_password", { p_password: deletePassword });
+      if (error) throw new Error("캘린더 삭제 실패: " + error.message);
+      setDeletePassword("");
+      setSettingsOpen(false);
+      setHousehold(null);
+      setEntries(readLocalEntries());
+      await supabase.auth.signOut();
+      setSession(null);
+      setAuthName("");
+      setAuthPassword("");
+      setAuthMode("login");
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : "캘린더를 삭제하지 못했어요.");
+    } finally { setAuthBusy(false); }
+  };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setHousehold(null); };
   const openSettings = () => {
     setSettingsName(household?.login_name || "");
@@ -256,16 +308,17 @@ export default function App() {
   if (!isCloudConfigured) return <div className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div><h1>클라우드 설정이 필요해요</h1><p>Supabase 프로젝트를 만든 뒤 Vercel 환경 변수에 Project URL과 publishable/anon key를 추가해 주세요.</p><p className="auth-help">설정 방법은 저장소의 README.md에서 확인할 수 있어요.</p></section></div>;
   if (!authReady) return <div className="auth-screen"><section className="auth-card"><p>클라우드 연결을 확인하고 있어요…</p></section></div>;
   if (session && !household) return <div className="auth-screen"><section className="auth-card"><h1>캘린더를 불러오는 중이에요</h1>{cloudError && <p className="auth-error">{cloudError}</p>}<button className="auth-switch" onClick={signOut}>로그아웃</button></section></div>;
-  if (!session) return <div className="auth-screen"><form className="auth-card" onSubmit={handleAuth}>
+  if (!session) return <div className="auth-screen"><form className="auth-card" onSubmit={authMode === "login" ? handleAuth : handleCreateHousehold}>
     <div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div>
-    <div className="eyebrow">YOUR SHARED SPACE</div><h1>캘린더에 로그인하기</h1>
-    <p>두 기기에서 같은 이름과 비밀번호를 사용하면 같은 일정을 볼 수 있어요.</p>
+    <div className="eyebrow">YOUR SHARED SPACE</div><h1>{authMode === "login" ? "캘린더에 로그인하기" : "새 캘린더 만들기"}</h1>
+    <p>{authMode === "login" ? "두 기기에서 같은 이름과 비밀번호를 사용하면 같은 일정을 볼 수 있어요." : "새 이름과 비밀번호로 별도의 공유 캘린더를 만들어요."}</p>
     {cloudError && <div className="auth-error">{cloudError}</div>}
     {authError && <div className="auth-error">{authError}</div>}
     <label className="field-label">캘린더 이름<input required minLength={2} maxLength={40} autoComplete="username" value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="예: 우리 둘의 캘린더"/></label>
-    <label className="field-label">비밀번호<input required minLength={8} type="password" autoComplete="current-password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="8자 이상"/></label>
-    <button type="submit" className="save-button auth-submit" disabled={authBusy}>{authBusy ? "확인 중…" : "로그인"}</button>
-    <p className="auth-help">회원가입 없이 기존 캘린더 이름과 비밀번호로 로그인하세요. 비밀번호는 안전하게 보관해 주세요.</p>
+    <label className="field-label">비밀번호<input required minLength={8} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="8자 이상"/></label>
+    <button type="submit" className="save-button auth-submit" disabled={authBusy}>{authBusy ? "처리 중…" : authMode === "login" ? "로그인" : "캘린더 만들기"}</button>
+    <button type="button" className="auth-switch" onClick={() => { setAuthMode(authMode === "login" ? "create" : "login"); setAuthError(""); setAuthPassword(""); }}>{authMode === "login" ? "새 캘린더 등록하기" : "기존 캘린더 로그인하기"}</button>
+    <p className="auth-help">{authMode === "login" ? "기존 캘린더 이름과 비밀번호로 로그인하세요." : "캘린더 이름은 다른 캘린더와 중복될 수 없어요. 비밀번호는 8자 이상으로 설정해 주세요."} 비밀번호는 안전하게 보관해 주세요.</p>
   </form></div>;
   return <div className="app-shell">
     <header className="topbar">
@@ -319,6 +372,7 @@ export default function App() {
       <label className="field-label">캘린더 이름<input required minLength={2} maxLength={40} autoComplete="username" value={settingsName} onChange={e=>setSettingsName(e.target.value)} placeholder="새 캘린더 이름"/></label>
       <label className="field-label">새 비밀번호 <span className="optional">(선택, 8자 이상)</span><input type="password" autoComplete="new-password" minLength={8} value={settingsPassword} onChange={e=>setSettingsPassword(e.target.value)} placeholder="변경하지 않으려면 비워 두세요"/></label>
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setSettingsOpen(false)}>닫기</button><button type="submit" className="save-button" disabled={authBusy}>{authBusy?"저장 중…":"변경사항 저장"}</button></div>
+      <div className="settings-danger"><h3>캘린더 삭제</h3><p>캘린더와 그 안의 모든 일정이 영구 삭제돼요. 삭제하려면 현재 비밀번호를 입력하세요.</p><label className="field-label">현재 비밀번호<input type="password" autoComplete="current-password" value={deletePassword} onChange={e=>setDeletePassword(e.target.value)} placeholder="삭제 확인용 비밀번호"/></label><button type="button" className="delete-calendar-button" disabled={authBusy} onClick={() => void deleteHousehold()}>{authBusy ? "처리 중…" : "캘린더 영구 삭제"}</button></div>
     </form></div>}
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false);}}><form className="entry-modal" onSubmit={save}><div className="modal-heading"><div><div className="eyebrow">{editing?"EDIT YOUR PLAN":"MAKE A PLAN"}</div><h2>{editing?"계획 수정하기":"새 계획 추가하기"}</h2></div><button type="button" className="close-modal" onClick={()=>setModal(false)} aria-label="닫기">×</button></div>
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
