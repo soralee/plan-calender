@@ -202,3 +202,74 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .loading-copy{margin:9px 0 0;color:#8a837b;font-size:13px}
 @keyframes calendar-loading-pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
 @media(prefers-reduced-motion:reduce){.loading-indicator span{animation:none;opacity:.7}}
+
+
+/* Readability improvements */
+.brand{font-size:17px}
+.brand small{font-size:9px}
+.text-button,.add-button{font-size:13px}
+.welcome-row .eyebrow{font-size:11px}
+.welcome-row p{font-size:14px}
+.stat-card span{font-size:13px}
+.stat-card strong{font-size:23px}
+.stat-card strong small{font-size:12px}
+.panel-heading h2{font-size:23px}
+.month-controls .today-button{font-size:12px}
+.weekday-row div{font-size:12px}
+.day-cell{gap:8px}
+.day-number{font-size:14px;width:29px;height:29px;line-height:29px}
+.day-dots b{font-size:10px}
+.calendar-legend{gap:14px}
+.calendar-legend span{font-size:12px}
+.calendar-legend .dot{width:7px;height:7px}
+.day-panel-top h2{font-size:20px}
+.filter-row button{font-size:12px}
+.search-box input{font-size:13px}
+.kind-pill{font-size:11px}
+.category-label,.time-label{font-size:11px}
+.entry-title{font-size:14px;line-height:1.55}
+.assignee{font-size:11px}
+.done-toggle{font-size:11px}
+.entry-note{font-size:12px;line-height:1.6}
+.wide-add{font-size:13px}
+.empty-state strong{font-size:14px}
+.empty-state p{font-size:12px}
+.empty-state button{font-size:12px}
+.footer{font-size:11px}
+.field-label{font-size:13px}
+.field-label input,.field-label select,.field-label textarea{font-size:14px}
+.choice-row button,.cancel-button,.save-button{font-size:13px}
+@media(max-width:900px){
+  .day-number{font-size:13px}
+  .calendar-legend{gap:11px}
+  .calendar-legend span{font-size:11px}
+}
+@media(max-width:680px){
+  .brand{font-size:14px}
+  .text-button,.add-button{font-size:12px}
+  .welcome-row .eyebrow{font-size:10px}
+  .welcome-row p{font-size:12px}
+  .stat-card span{font-size:10px}
+  .stat-card strong{font-size:18px}
+  .stat-card strong small{font-size:9px}
+  .panel-heading h2{font-size:20px}
+  .weekday-row div{font-size:12px}
+  .calendar-grid{grid-auto-rows:minmax(58px,auto)}
+  .day-cell{gap:5px;padding-top:7px}
+  .day-number{font-size:13px;width:25px;height:25px;line-height:25px}
+  .day-dots b{font-size:10px}
+  .calendar-legend{gap:10px}
+  .calendar-legend span{font-size:11px}
+  .day-panel-top h2{font-size:19px}
+  .filter-row button{font-size:12px}
+  .entry-title{font-size:14px}
+  .kind-pill,.category-label,.time-label{font-size:11px}
+  .assignee{font-size:11px}
+  .entry-note{font-size:12px}
+  .footer{font-size:10px}
+}
+@media(max-width:360px){
+  .calendar-legend{gap:8px}
+  .calendar-legend span{font-size:10px}
+  .day-number{font-size:12px}
+}
