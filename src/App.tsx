@@ -41,6 +41,8 @@ const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
   created_by: userId
 });
 type Household = { id: string; name: string; login_name: string; member_one_name?: string; member_two_name?: string };
+const defaultNamePairs = [["라임", "모카"], ["구름", "별이"], ["보리", "두부"], ["하루", "나루"], ["토리", "루미"], ["단추", "콩이"], ["초코", "바닐라"], ["유자", "호두"]];
+const randomNamePair = () => defaultNamePairs[Math.floor(Math.random() * defaultNamePairs.length)];
 
 export default function App() {
   const [entries, setEntries] = useState<Entry[]>(readLocalEntries);
@@ -61,8 +63,9 @@ export default function App() {
   const [memberNamesMessage, setMemberNamesMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
-  const [myDisplayName, setMyDisplayName] = useState("나");
-  const [partnerDisplayName, setPartnerDisplayName] = useState("배우자");
+  const [initialNamePair] = useState(() => randomNamePair());
+  const [myDisplayName, setMyDisplayName] = useState(initialNamePair[0]);
+  const [partnerDisplayName, setPartnerDisplayName] = useState(initialNamePair[1]);
   const [settingsPassword, setSettingsPassword] = useState("");
   const [settingsError, setSettingsError] = useState("");
   const [settingsMessage, setSettingsMessage] = useState("");
@@ -103,8 +106,8 @@ export default function App() {
       if (cancelled) return;
       if (homeError || !home) { setCloudError("공유 캘린더 정보를 불러오지 못했어요."); return; }
       setHousehold(home as Household);
-      setMyDisplayName(home.member_one_name || "나");
-      setPartnerDisplayName(home.member_two_name || "배우자");
+      setMyDisplayName(home.member_one_name || initialNamePair[0]);
+      setPartnerDisplayName(home.member_two_name || initialNamePair[1]);
     })();
     return () => { cancelled = true; };
   }, [session]);
@@ -242,8 +245,8 @@ export default function App() {
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setHousehold(null); };
   const openSettings = () => {
     setSettingsName(household?.login_name || "");
-    setMyDisplayName(household?.member_one_name || "나");
-    setPartnerDisplayName(household?.member_two_name || "배우자");
+    setMyDisplayName(household?.member_one_name || initialNamePair[0]);
+    setPartnerDisplayName(household?.member_two_name || initialNamePair[1]);
     setSettingsPassword("");
     setSettingsError("");
     setSettingsMessage("");
@@ -280,7 +283,7 @@ export default function App() {
     const nextMine = myDisplayName.trim();
     const nextPartner = partnerDisplayName.trim();
     const nameChanged = nextName.toLocaleLowerCase("ko-KR") !== household.login_name.toLocaleLowerCase("ko-KR");
-    const membersChanged = nextMine !== (household.member_one_name || "나") || nextPartner !== (household.member_two_name || "배우자");
+    const membersChanged = nextMine !== (household.member_one_name || initialNamePair[0]) || nextPartner !== (household.member_two_name || initialNamePair[1]);
     if (nameChanged && (nextName.length < 2 || nextName.length > 40)) { setSettingsError("캘린더 로그인 이름은 2~40자로 입력해 주세요."); return; }
     if (!nextMine || nextMine.length > 20 || !nextPartner || nextPartner.length > 20) { setSettingsError("두 사람의 이름을 1~20자로 입력해 주세요."); return; }
     if (nextMine.toLocaleLowerCase("ko-KR") === nextPartner.toLocaleLowerCase("ko-KR")) { setSettingsError("두 사람의 이름은 서로 다르게 입력해 주세요."); return; }
@@ -426,11 +429,11 @@ export default function App() {
       <footer className="footer"><span>둘이 함께 채워가는 작은 기록</span><span>저장 위치: 클라우드 <i>·</i> {household?.name} <i>·</i> 기기 간 동기화 사용 중</span></footer>
     </main>
     {memberNamesOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setMemberNamesOpen(false);}}><form className="entry-modal" onSubmit={saveMemberNames}><div className="modal-heading"><div><div className="eyebrow">SHARED CALENDAR</div><h2>담당자 이름 설정</h2></div><button type="button" className="close-modal" onClick={()=>setMemberNamesOpen(false)} aria-label="닫기">×</button></div>
-      <p className="settings-description">두 사람의 이름은 공유 캘린더를 사용하는 모든 기기에 함께 적용돼요.</p>
+      
       {memberNamesError&&<div className="auth-error">{memberNamesError}</div>}
       {memberNamesMessage&&<div className="settings-success">{memberNamesMessage}</div>}
       <div className="field-grid"><label className="field-label">첫 번째 사람 이름<input required maxLength={20} value={myDisplayName} onChange={e=>setMyDisplayName(e.target.value)} placeholder="예: 소라"/></label><label className="field-label">두 번째 사람 이름<input required maxLength={20} value={partnerDisplayName} onChange={e=>setPartnerDisplayName(e.target.value)} placeholder="예: 민수"/></label></div>
-      <p className="settings-description">기존 일정의 ‘나’는 첫 번째 사람, ‘배우자’는 두 번째 사람으로 표시돼요. ‘함께’는 그대로 유지돼요.</p>
+      
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setMemberNamesOpen(false)}>닫기</button><button type="submit" className="save-button" disabled={authBusy}>{authBusy?"저장 중…":"이름 저장"}</button></div>
     </form></div>}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><form className="entry-modal" onSubmit={saveSettings}><div className="modal-heading"><div><div className="eyebrow">ACCOUNT SETTINGS</div><h2>계정 설정</h2></div><button type="button" className="close-modal" onClick={()=>setSettingsOpen(false)} aria-label="닫기">×</button></div>
