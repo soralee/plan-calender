@@ -144,33 +144,20 @@ export default function App() {
     if (authPassword.length < 8) { setAuthError('비밀번호는 8자 이상 입력해 주세요.'); return; }
     setAuthBusy(true); setAuthError('');
     try {
-      const { data: current } = await supabase.auth.getSession();
+      const { data: current, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
       if (!current.session) {
         const { error: anonError } = await supabase.auth.signInAnonymously();
-        if (anonError) throw new Error('익명 로그인을 사용할 수 없어요. Supabase에서 Anonymous Sign-Ins를 활성화해 주세요.');
+        if (anonError) throw new Error('익명 로그인 실패: ' + anonError.message);
       }
       const { data: loginData, error: loginError } = await supabase.rpc('login_household', { p_login_name: name, p_password: authPassword });
-      if (!loginError) {
-        const home = Array.isArray(loginData) ? loginData[0] : loginData;
-        if (!home || !home.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
-        const { data: sessionData } = await supabase.auth.getSession();
-        setSession(sessionData.session);
-        setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name });
-        return;
-      }
-      await supabase.auth.signOut();
-      const { data: accountEmail, error: lookupError } = await supabase.rpc('lookup_household_login_email', { p_login_name: name });
-      if (lookupError || typeof accountEmail !== 'string' || !accountEmail) throw new Error('캘린더 이름 또는 비밀번호가 올바르지 않아요.');
-      const { data: legacyData, error: legacyError } = await supabase.auth.signInWithPassword({ email: accountEmail, password: authPassword });
-      if (legacyError || !legacyData.session) throw new Error('캘린더 이름 또는 비밀번호가 올바르지 않아요.');
-      const { error: migrateError } = await supabase.rpc('migrate_household_password', { p_password: authPassword });
-      if (migrateError) throw new Error('기존 계정을 새 로그인 방식으로 이전하지 못했어요. 이전용 SQL을 확인해 주세요.');
-      const { data: migratedData, error: migratedError } = await supabase.rpc('login_household', { p_login_name: name, p_password: authPassword });
-      if (migratedError) throw migratedError;
-      const migratedHome = Array.isArray(migratedData) ? migratedData[0] : migratedData;
-      if (!migratedHome || !migratedHome.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
-      setSession(legacyData.session);
-      setHousehold({ id: migratedHome.household_id, name: migratedHome.household_name, login_name: migratedHome.login_name });
+      if (loginError) throw new Error('캘린더 로그인 실패: ' + loginError.message);
+      const home = Array.isArray(loginData) ? loginData[0] : loginData;
+      if (!home || !home.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
+      const { data: sessionData, error: refreshedSessionError } = await supabase.auth.getSession();
+      if (refreshedSessionError) throw refreshedSessionError;
+      setSession(sessionData.session);
+      setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name });
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : '로그인 중 문제가 발생했어요.');
     } finally { setAuthBusy(false); }
