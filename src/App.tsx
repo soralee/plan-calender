@@ -308,7 +308,7 @@ export default function App() {
   if (!isCloudConfigured) return <div className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div><h1>클라우드 설정이 필요해요</h1><p>Supabase 프로젝트를 만든 뒤 Vercel 환경 변수에 Project URL과 publishable/anon key를 추가해 주세요.</p><p className="auth-help">설정 방법은 저장소의 README.md에서 확인할 수 있어요.</p></section></div>;
   if (!authReady) return <div className="auth-screen"><section className="auth-card"><p>클라우드 연결을 확인하고 있어요…</p></section></div>;
   if (session && !household) return <div className="auth-screen"><section className="auth-card"><h1>캘린더를 불러오는 중이에요</h1>{cloudError && <p className="auth-error">{cloudError}</p>}<button className="auth-switch" onClick={signOut}>로그아웃</button></section></div>;
-  if (!session) return <div className="auth-screen"><form className="auth-card" onSubmit={authMode === "login" ? handleAuth : handleCreateHousehold}>
+  if (!session || !household) return <div className="auth-screen"><form className="auth-card" onSubmit={authMode === "login" ? handleAuth : handleCreateHousehold}>
     <div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div>
     <div className="eyebrow">YOUR SHARED SPACE</div><h1>{authMode === "login" ? "캘린더에 로그인하기" : "새 캘린더 만들기"}</h1>
     <p>{authMode === "login" ? "두 기기에서 같은 이름과 비밀번호를 사용하면 같은 일정을 볼 수 있어요." : "새 이름과 비밀번호로 별도의 공유 캘린더를 만들어요."}</p>
