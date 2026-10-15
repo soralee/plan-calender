@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "우리의 캘린더",
+  "short_name": "우리 캘린더",
+  "description": "둘이 함께 관리하는 일정과 할 일 캘린더",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f7f3",
+  "theme_color": "#f7f7f3",
+  "icons": [
+    {
+      "src": "/icons/calendar.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
