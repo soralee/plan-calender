@@ -669,3 +669,19 @@ main{width:100%;max-width:1200px;min-width:0}
   .welcome-row{padding-right:16px}
   .welcome-art{flex-basis:80px;transform:translateX(-6px)}
 }
+
+
+/* Keep the hero art vertically centered in its own row, with clear space below the app bar */
+.welcome-row{padding-top:18px;padding-bottom:18px;align-items:center}
+.welcome-art{transform:translate(-12px,8px)}
+@media(max-width:900px){
+  .welcome-row{padding-top:14px;padding-bottom:14px}
+  .welcome-art{transform:translate(-10px,6px)}
+}
+@media(max-width:680px){
+  .welcome-row{padding-top:10px;padding-bottom:10px}
+  .welcome-art{transform:translate(-8px,4px) scale(.75);transform-origin:right center}
+}
+@media(max-width:360px){
+  .welcome-art{transform:translate(-6px,3px) scale(.62);transform-origin:right center}
+}
