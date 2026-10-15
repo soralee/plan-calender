@@ -176,8 +176,16 @@ export default function App() {
       if (!home || !home.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
       const { data: sessionData, error: refreshedSessionError } = await supabase.auth.getSession();
       if (refreshedSessionError) throw refreshedSessionError;
+      const { data: savedHome, error: savedHomeError } = await supabase
+        .from("households")
+        .select("id,name,login_name,member_one_name,member_two_name")
+        .eq("id", home.household_id)
+        .single();
+      if (savedHomeError || !savedHome) throw new Error("저장된 담당자 이름을 불러오지 못했어요.");
       setSession(sessionData.session);
-      setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name });
+      setHousehold(savedHome as Household);
+      setMyDisplayName(savedHome.member_one_name || "나");
+      setPartnerDisplayName(savedHome.member_two_name || "배우자");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : '로그인 중 문제가 발생했어요.');
     } finally { setAuthBusy(false); }
@@ -222,7 +230,15 @@ export default function App() {
       }
       const { data: sessionData, error: refreshedSessionError } = await supabase.auth.getSession();
       if (refreshedSessionError) throw refreshedSessionError;
-      setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name || name });
+      const { data: savedHome, error: savedHomeError } = await supabase
+        .from("households")
+        .select("id,name,login_name,member_one_name,member_two_name")
+        .eq("id", home.household_id)
+        .single();
+      if (savedHomeError || !savedHome) throw new Error("담당자 이름 설정을 불러오지 못했어요.");
+      setHousehold(savedHome as Household);
+      setMyDisplayName(savedHome.member_one_name || "나");
+      setPartnerDisplayName(savedHome.member_two_name || "배우자");
       setSession(sessionData.session);
       setAuthPassword("");
     } catch (error) {
