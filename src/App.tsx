@@ -87,7 +87,6 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      setHouseholdReady(false);
       if (!nextSession) { setHousehold(null); setCloudError(""); setHouseholdReady(true); }
     });
     return () => listener.subscription.unsubscribe();
@@ -114,7 +113,7 @@ export default function App() {
       setPartnerDisplayName(home.member_two_name || initialNamePair[1]);
     })();
     return () => { cancelled = true; };
-  }, [session]);
+  }, [session?.user.id]);
 
   useEffect(() => {
     if (!supabase || !session || !household) return;
