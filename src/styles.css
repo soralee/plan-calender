@@ -719,3 +719,20 @@ main{width:100%;max-width:1200px;min-width:0}
   .welcome-art{flex-basis:145px;transform:translate(-6px,3px)}
   .welcome-art.bori-hero img{max-height:165px}
 }
+
+
+/* Align the hero illustration's right edge with the summary cards and app bar content */
+.welcome-row{padding-right:0!important}
+.welcome-art{margin-right:0!important;transform:translateY(8px)!important}
+@media(max-width:900px){
+  .welcome-row{padding-right:0!important}
+  .welcome-art{transform:translateY(6px)!important}
+}
+@media(max-width:680px){
+  .welcome-row{padding-right:0!important}
+  .welcome-art{transform:translateY(4px)!important}
+}
+@media(max-width:360px){
+  .welcome-row{padding-right:0!important}
+  .welcome-art{transform:translateY(3px)!important}
+}
