@@ -437,3 +437,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .icon-action[aria-label="삭제"]{font-size:18px}
   .assignee{font-size:10px}
 }
+
+
+/* Align assignee label with the task/event badge */
+.entry-meta{margin-bottom:7px}
+.entry-meta .assignee{
+  font-size:11px;
+  line-height:1.35;
+  gap:5px;
+  white-space:nowrap;
+}
+.entry-meta .assignee i{width:6px;height:6px}
+@media(max-width:680px){
+  .entry-meta .assignee{font-size:11px}
+}
