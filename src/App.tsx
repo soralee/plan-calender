@@ -426,7 +426,7 @@ export default function App() {
     <header className="topbar">
       <a className="brand appbar-brand" href="#" aria-label="캘린더 홈">
         <span className="brand-mark"><span></span><span></span><span></span><span></span></span>
-        <span className="calendar-title" title={household?.name || "우리의 캘린더"}>{household?.name || "우리의 캘린더"}</span>
+        <span className="calendar-title" title={household?.name || "우리의 캘린더"}>{(household?.name || "우리의 캘린더").replace(/[.。]+\\s*$/, "")}</span>
       </a>
       <div className="top-actions">
         <button className="add-button" onClick={() => openNew()}><span className="add-symbol">＋</span><span className="add-label">새 항목</span></button>
