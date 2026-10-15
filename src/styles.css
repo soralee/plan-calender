@@ -512,3 +512,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .stat-card span{min-height:38px}
   .stat-card strong small{font-size:11px}
 }
+
+
+/* Tighten vertical rhythm and improve summary typography */
+.stat-card{padding:14px 18px;gap:12px}
+.stat-card span{font-size:15px;line-height:1.3;min-height:0;margin:0 0 2px}
+.stat-card strong{font-size:27px;line-height:1.15}
+.stat-card strong small{font-size:17px;line-height:1.15}
+@media(max-width:680px){
+  .stat-card{padding:10px 8px;gap:7px}
+  .stat-card span{font-size:12px;line-height:1.3;min-height:0;margin-bottom:3px}
+  .stat-card strong{font-size:23px;line-height:1.15}
+  .stat-card strong small{font-size:14px;line-height:1.15}
+}
+@media(max-width:360px){
+  .stat-card span{font-size:11px}
+  .stat-card strong{font-size:21px}
+  .stat-card strong small{font-size:12px}
+}
