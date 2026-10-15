@@ -622,3 +622,16 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .stat-card span{font-size:11px}
 }
+
+
+/* Add breathing room between the welcome illustration and the right viewport edge */
+.welcome-art{margin-right:44px}
+@media(max-width:900px){
+  .welcome-art{margin-right:28px}
+}
+@media(max-width:680px){
+  .welcome-art{margin-right:12px}
+}
+@media(max-width:360px){
+  .welcome-art{margin-right:8px}
+}
