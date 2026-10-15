@@ -182,3 +182,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .modal-actions{gap:6px}
   .cancel-button,.save-button{padding:11px 12px}
 }
+
+/* Monthly calendar dots identify who owns each plan. */
+.dot.assignee-me{background:#91b7f7}
+.dot.assignee-partner{background:#e9a6d2}
+.dot.assignee-together{background:#a78bfa}
+.assignee-legend{flex-wrap:wrap}
+.assignee-legend .dot{width:7px;height:7px}
