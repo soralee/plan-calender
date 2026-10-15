@@ -50,6 +50,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [householdReady, setHouseholdReady] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -86,26 +87,29 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (!nextSession) { setHousehold(null); setCloudError(""); }
+      setHouseholdReady(false);
+      if (!nextSession) { setHousehold(null); setCloudError(""); setHouseholdReady(true); }
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!supabase || !session) { setHousehold(null); return; }
+    if (!supabase || !session) { setHousehold(null); setHouseholdReady(true); return; }
     let cancelled = false;
+    setHouseholdReady(false);
     (async () => {
       setCloudError("");
       const { data: membership, error: membershipError } = await supabase!
         .from("household_members").select("household_id").eq("user_id", session.user.id).limit(1).maybeSingle();
       if (cancelled) return;
-      if (membershipError) { setCloudError("클라우드 설정을 확인해 주세요. Supabase SQL 설정이 완료되었는지 확인해 주세요."); return; }
-      if (!membership) { setHousehold(null); return; }
+      if (membershipError) { setCloudError("클라우드 설정을 확인해 주세요. Supabase SQL 설정이 완료되었는지 확인해 주세요."); setHouseholdReady(true); return; }
+      if (!membership) { setHousehold(null); setHouseholdReady(true); return; }
       const { data: home, error: homeError } = await supabase!
         .from("households").select("id,name,login_name,member_one_name,member_two_name").eq("id", membership.household_id).maybeSingle();
       if (cancelled) return;
-      if (homeError || !home) { setCloudError("공유 캘린더 정보를 불러오지 못했어요."); return; }
+      if (homeError || !home) { setCloudError("공유 캘린더 정보를 불러오지 못했어요."); setHouseholdReady(true); return; }
       setHousehold(home as Household);
+      setHouseholdReady(true);
       setMyDisplayName(home.member_one_name || initialNamePair[0]);
       setPartnerDisplayName(home.member_two_name || initialNamePair[1]);
     })();
@@ -368,7 +372,7 @@ export default function App() {
           })();
         } } catch { window.alert("올바른 캘린더 JSON 파일이 아닙니다."); } }; reader.readAsText(file); };
   if (!isCloudConfigured) return <div className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div><h1>클라우드 설정이 필요해요</h1><p>Supabase 프로젝트를 만든 뒤 Vercel 환경 변수에 Project URL과 publishable/anon key를 추가해 주세요.</p><p className="auth-help">설정 방법은 저장소의 README.md에서 확인할 수 있어요.</p></section></div>;
-  if (!authReady) return <div className="auth-screen"><section className="auth-card"><p>클라우드 연결을 확인하고 있어요…</p></section></div>;
+  if (!authReady || (session && !householdReady)) return <div className="auth-screen"><section className="auth-card loading-card"><div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div><div className="loading-indicator" aria-hidden="true"><span></span><span></span><span></span></div><h1 className="loading-title">캘린더를 불러오고 있어요</h1><p className="loading-copy">잠시만 기다려 주세요.</p></section></div>;
   // If a session exists but no household is resolved, keep the auth form available instead of trapping the user on a loading screen.
   if (!session || !household) return <div className="auth-screen"><form className="auth-card" onSubmit={authMode === "login" ? handleAuth : handleCreateHousehold}>
     <div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div>
