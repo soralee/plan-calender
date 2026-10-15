@@ -700,3 +700,22 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .welcome-art.bori-hero img{max-height:110px}
 }
+
+
+/* Increase the Bori hero artwork while preserving the title and right inset */
+.welcome-art{flex:0 0 270px;transform:translate(-12px,8px)}
+.welcome-art.bori-hero img{width:100%;max-height:300px;object-fit:contain}
+@media(max-width:900px){
+  .welcome-art{flex-basis:220px;transform:translate(-10px,6px)}
+  .welcome-art.bori-hero img{max-height:250px}
+}
+@media(max-width:680px){
+  .welcome-row{padding-right:18px}
+  .welcome-art{flex-basis:180px;transform:translate(-8px,4px)}
+  .welcome-art.bori-hero img{max-height:200px}
+}
+@media(max-width:360px){
+  .welcome-row{padding-right:14px}
+  .welcome-art{flex-basis:145px;transform:translate(-6px,3px)}
+  .welcome-art.bori-hero img{max-height:165px}
+}
