@@ -11,7 +11,7 @@
   "background_color": "#f7f7f3",
   "theme_color": "#f7f7f3",
   "icons": [{
-    "src": "/icons/bori-calendar.jpg?v=4",
+    "src": "/icons/bori-pwa-small.jpg?v=5",
     "sizes": "256x256",
     "type": "image/jpeg",
     "purpose": "any"
