@@ -63,6 +63,13 @@ export default function App() {
   const [memberNamesError, setMemberNamesError] = useState("");
   const [memberNamesMessage, setMemberNamesMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportDate, setBulkImportDate] = useState(dateKey(today));
+  const [bulkImportAssignee, setBulkImportAssignee] = useState<Assignee>("나");
+  const [bulkImportCategory, setBulkImportCategory] = useState("개인");
+  const [bulkImportError, setBulkImportError] = useState("");
+  const [bulkImportBusy, setBulkImportBusy] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [initialNamePair] = useState(() => randomNamePair());
   const [myDisplayName, setMyDisplayName] = useState(initialNamePair[0]);
@@ -356,6 +363,33 @@ export default function App() {
     await cloudSave(updated);
   };
   const exportJson = () => { const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "our-calendar-backup.json"; a.click(); URL.revokeObjectURL(url); };
+  const importReminders = async (ev: FormEvent) => {
+    ev.preventDefault();
+    const lines = bulkImportText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (!lines.length) { setBulkImportError("가져올 할 일을 한 줄 이상 붙여 넣어 주세요."); return; }
+    const additions: Entry[] = lines.map((line, index) => {
+      const dated = line.match(/^(\d{4}-\d{1,2}-\d{1,2})\s*[|｜、,]\s*(.+)$/);
+      const title = (dated ? dated[2] : line).trim().replace(/^[-•*✓☐☑]\s*/, "");
+      const rawDate = dated?.[1];
+      const date = rawDate ? (() => { const parts = rawDate.split("-").map(Number); return parts[0] + "-" + pad(parts[1]) + "-" + pad(parts[2]); })() : bulkImportDate;
+      return { id: crypto.randomUUID ? crypto.randomUUID() : "reminder-" + Date.now() + "-" + index, title, date, kind: "할 일" as Kind, assignee: bulkImportAssignee, category: bulkImportCategory, done: false };
+    }).filter(entry => entry.title.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(entry.date));
+    if (!additions.length) { setBulkImportError("가져올 할 일과 날짜를 확인해 주세요."); return; }
+    setBulkImportBusy(true); setBulkImportError(""); setCloudError("");
+    try {
+      if (supabase && session && household) {
+        const rows = additions.map(entry => cloudRow(entry, household.id, session.user.id));
+        const { error } = await supabase.from("entries").upsert(rows, { onConflict: "household_id,id" });
+        if (error) throw error;
+      }
+      setEntries(current => [...current, ...additions]);
+      setBulkImportText("");
+      setBulkImportOpen(false);
+      window.alert(additions.length + "개의 할 일을 기존 일정에 추가했어요.");
+    } catch (error) {
+      setBulkImportError("할 일을 추가하지 못했어요. " + (error instanceof Error ? error.message : ""));
+    } finally { setBulkImportBusy(false); }
+  };
   const importJson = (file?: File) => { if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const data = JSON.parse(String(reader.result)); if (!Array.isArray(data) || !data.every((e: Entry) => e.id && e.title && e.date)) throw new Error(); if (window.confirm("현재 항목을 가져온 백업으로 교체할까요?")) {
           void (async () => {
             if (supabase && household) {
@@ -400,6 +434,7 @@ export default function App() {
             <button role="menuitem" onClick={() => { setMenuOpen(false); openSettings(); }}>계정 설정</button>
             <button role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>백업 다운로드</button>
             <button role="menuitem" onClick={() => { setMenuOpen(false); importRef.current?.click(); }}>백업 가져오기</button>
+            <button role="menuitem" onClick={() => { setMenuOpen(false); setBulkImportError(""); setBulkImportOpen(true); }}>미리 알림 일괄 추가</button>
             <div className="menu-divider"></div>
             <button role="menuitem" className="logout-menu-item" onClick={() => { setMenuOpen(false); void signOut(); }}>로그아웃</button>
           </div></>}
@@ -431,6 +466,15 @@ export default function App() {
       </section>
       <footer className="footer"><span>둘이 함께 채워가는 작은 기록</span><span>저장 위치: 클라우드 <i>·</i> {household?.name} <i>·</i> 기기 간 동기화 사용 중</span></footer>
     </main>
+    {bulkImportOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!bulkImportBusy)setBulkImportOpen(false);}}><form className="entry-modal" onSubmit={importReminders}><div className="modal-heading"><div><div className="eyebrow">BULK ADD TASKS</div><h2>미리 알림 일괄 추가</h2></div><button type="button" className="close-modal" onClick={()=>setBulkImportOpen(false)} aria-label="닫기" disabled={bulkImportBusy}>×</button></div>
+      <p className="settings-description">아이폰 ‘미리 알림’에서 반복 항목은 제외하고, 할 일 제목을 한 줄에 하나씩 붙여 넣으세요. 기존 일정은 유지되고 새 할 일만 추가돼요.</p>
+      <p className="settings-description">날짜도 지정하려면 <strong>2026-10-25 | 이사 박스 정리</strong>처럼 입력하세요. 날짜가 없는 줄은 아래 기본 날짜로 추가됩니다.</p>
+      {bulkImportError&&<div className="auth-error">{bulkImportError}</div>}
+      <label className="field-label">할 일 목록<textarea required rows={8} value={bulkImportText} onChange={e=>setBulkImportText(e.target.value)} placeholder={"예:\n2026-10-25 | 이사 박스 정리\n관리사무소에 연락하기\n전입신고 준비"} /></label>
+      <label className="field-label">날짜가 없는 항목의 기본 날짜<input type="date" required value={bulkImportDate} onChange={e=>setBulkImportDate(e.target.value)} /></label>
+      <div className="field-grid"><label className="field-label">담당자<select value={bulkImportAssignee} onChange={e=>setBulkImportAssignee(e.target.value as Assignee)}><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option><option value="함께">함께</option></select></label><label className="field-label">카테고리<select value={bulkImportCategory} onChange={e=>setBulkImportCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label></div>
+      <div className="modal-actions"><button type="button" className="cancel-button" disabled={bulkImportBusy} onClick={()=>setBulkImportOpen(false)}>취소</button><button type="submit" className="save-button" disabled={bulkImportBusy}>{bulkImportBusy?"추가 중…":"할 일 추가하기"}</button></div>
+    </form></div>}
     {memberNamesOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setMemberNamesOpen(false);}}><form className="entry-modal" onSubmit={saveMemberNames}><div className="modal-heading"><div><div className="eyebrow">SHARED CALENDAR</div><h2>담당자 이름 설정</h2></div><button type="button" className="close-modal" onClick={()=>setMemberNamesOpen(false)} aria-label="닫기">×</button></div>
       
       {memberNamesError&&<div className="auth-error">{memberNamesError}</div>}
