@@ -20,10 +20,46 @@ const seed: Entry[] = [
 ];
 const categoryClass = (category: string) => ({ "이사": "moving", "집": "home", "금융": "money", "일": "work", "개인": "personal", "기타": "other" }[category] || "other");
 
+const readLocalEntries = (): Entry[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) as Entry[] : seed;
+  } catch { return seed; }
+};
+const internalEmail = async (name: string) => {
+  const normalized = name.trim().toLocaleLowerCase("ko-KR");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+  const hex = Array.from(new Uint8Array(digest)).map(n => n.toString(16).padStart(2, "0")).join("");
+  return `u${hex}@login.our-calendar.invalid`;
+};
+const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
+  household_id: householdId,
+  id: entry.id,
+  title: entry.title,
+  date: entry.date,
+  time: entry.time || null,
+  kind: entry.kind,
+  assignee: entry.assignee,
+  category: entry.category,
+  done: entry.done,
+  note: entry.note || null,
+  created_by: userId
+});
+type Household = { id: string; name: string; login_name: string };
+
 export default function App() {
-  const [entries, setEntries] = useState<Entry[]>(() => {
-    try { const saved = localStorage.getItem(STORAGE_KEY); return saved ? JSON.parse(saved) as Entry[] : seed; } catch { return seed; }
-  });
+  const [entries, setEntries] = useState<Entry[]>(readLocalEntries);
+  const localEntriesRef = useRef<Entry[]>(entries);
+  const [session, setSession] = useState<Session | null>(null);
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authName, setAuthName] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "create">("login");
+  const [authError, setAuthError] = useState("");
+  const [cloudError, setCloudError] = useState("");
+  const importRef = useRef<HTMLInputElement>(null);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(dateKey(today));
   const [filter, setFilter] = useState<"전체" | Assignee>("전체");
@@ -32,6 +68,10 @@ export default function App() {
   const [editing, setEditing] = useState<Entry | null>(null);
   const [form, setForm] = useState({ title: "", date: dateKey(today), time: "", kind: "일정" as Kind, assignee: "함께" as Assignee, category: "이사", note: "" });
   const importRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { /* private browsing or storage disabled */ }
+  }, [entries]);
+
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return; }
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
@@ -146,11 +186,21 @@ export default function App() {
   const doneCount = monthEntries.filter(e => e.kind === "할 일" && e.done).length;
   const openNew = (date = selectedDate) => { setEditing(null); setForm({ title: "", date, time: "", kind: "일정", assignee: "함께", category: "이사", note: "" }); setModal(true); };
   const openEdit = (e: Entry) => { setEditing(e); setForm({ title: e.title, date: e.date, time: e.time || "", kind: e.kind, assignee: e.assignee, category: e.category, note: e.note || "" }); setModal(true); };
-  const save = (ev: FormEvent) => {
-    ev.preventDefault(); if (!form.title.trim()) return;
-    const next: Entry = { ...form, title: form.title.trim(), id: editing?.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())), done: editing?.done || false };
+  const save = async (ev: FormEvent) => {
+    ev.preventDefault();
+    if (!form.title.trim()) return;
+    const next: Entry = {
+      ...form,
+      title: form.title.trim(),
+      id: editing?.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())),
+      done: editing?.done || false
+    };
     setEntries(prev => editing ? prev.map(e => e.id === editing.id ? next : e) : [...prev, next]);
-    setSelectedDate(form.date); const d = new Date(form.date + "T12:00:00"); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setModal(false);
+    await cloudSave(next);
+    setSelectedDate(form.date);
+    const d = new Date(form.date + "T12:00:00");
+    setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    setModal(false);
   };
   const remove = async (id: string) => {
     if (!window.confirm("이 항목을 삭제할까요?")) return;
