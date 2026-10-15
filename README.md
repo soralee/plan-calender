@@ -4,30 +4,31 @@ React + TypeScript + Vite로 만든 반응형 공유 캘린더입니다.
 
 ## 클라우드 저장소 설정
 
-이 앱은 Supabase를 데이터베이스와 로그인 서비스로 사용합니다. 저장소에 SQL 스키마와 앱 코드는 준비되어 있지만, 실제 클라우드 연결을 위해서는 개인 Supabase 프로젝트를 한 번 설정해야 합니다.
+이 앱은 Supabase를 데이터베이스로 사용합니다. 현재 로그인 방식은 이메일 발송이나 회원가입 없이 캘린더 이름과 비밀번호를 입력하는 방식입니다.
 
-1. [Supabase](https://supabase.com/)에서 프로젝트를 생성합니다.
-2. Supabase의 **SQL Editor**에서 `supabase/schema.sql` 전체를 실행합니다.
-3. **Authentication → Providers → Email**에서 이메일 확인(Confirm email)을 비활성화합니다. 이 MVP는 이메일 주소 대신 이름을 로그인 식별자로 쓰고 내부적으로 이메일 형식 ID를 생성합니다.
-4. **Project Settings → API**에서 Project URL과 publishable/anon key를 확인합니다.
-5. Vercel에서 **plan-calender → Settings → Environment Variables**에 다음 변수를 추가하고 Production 환경을 선택합니다.
-   - `VITE_SUPABASE_URL`: Supabase Project URL
-   - `VITE_SUPABASE_ANON_KEY`: Supabase publishable key 또는 anon key
-6. Vercel에서 재배포합니다. 로컬 개발을 한다면 프로젝트 루트의 `.env.local`에도 같은 두 변수를 설정하세요.
+1. Supabase의 **SQL Editor**에서 `supabase/schema.sql` 전체를 실행합니다.
+2. **Authentication → Sign In / Providers**에서 **Anonymous Sign-Ins**를 활성화합니다.
+3. **Project Settings → API**에서 Project URL과 publishable/anon key를 확인합니다.
+4. Vercel의 Production 환경 변수에 `VITE_SUPABASE_URL`과 `VITE_SUPABASE_ANON_KEY`를 설정합니다.
+5. `main`에 반영된 변경 사항이 배포될 때까지 기다립니다.
+
+브라우저에는 publishable/anon key만 사용하세요. `service_role` 또는 secret key를 프런트엔드에 넣지 마세요.
 
 **보안:** 브라우저용 publishable/anon key만 사용하세요. `service_role` 또는 secret key를 프론트엔드나 `VITE_*` 환경 변수에 절대 넣지 마세요. 데이터 테이블에는 Row Level Security(RLS) 정책이 적용되어 있습니다.
 
-## 캘린더 이름 변경 기능 추가 설정
+## 회원가입 없는 캘린더 이름 + 비밀번호 로그인으로 이전
 
-계정 설정에서 캘린더 이름을 변경하고 변경된 이름으로 다시 로그인하려면 Supabase **SQL Editor**에서 `supabase/rename_household_login.sql` 파일 전체를 실행하세요. 코드가 업데이트된 경우 이 SQL 파일도 다시 실행해야 합니다. 캘린더 이름만 변경하고 Supabase Auth 이메일은 그대로 유지하며, 중복 이름은 거부합니다.
+기존 계정을 사용하는 중인 경우, **Auth 사용자를 삭제하기 전에** 다음 순서로 이전하세요.
 
-## 이름 + 비밀번호 로그인
+1. 앱 코드 배포가 완료될 때까지 기다립니다.
+2. Supabase SQL Editor에서 `supabase/password_login_migration.sql` 전체를 실행합니다.
+3. 기존 계정으로 현재 앱에 로그인한 뒤, 캘린더 이름과 기존 비밀번호를 입력해 로그인합니다. 첫 로그인 시 기존 계정이 검증되고 비밀번호 해시가 캘린더에 저장됩니다.
+4. 기존 계정으로 로그인에 성공한 뒤에만 Supabase Authentication → Users에서 기존 Auth 사용자를 삭제합니다. 이 SQL은 해당 사용자가 삭제되어도 캘린더와 일정이 삭제되지 않도록 참조를 정리합니다.
+5. 이후 앱은 Anonymous Sign-Ins를 사용하며, 캘린더 이름과 비밀번호를 서버에서 검증합니다. 계정 설정의 비밀번호 변경도 캘린더 비밀번호 해시를 갱신합니다.
 
-- 첫 기기에서 **캘린더 만들기**를 선택하고 이름과 8자 이상 비밀번호를 설정합니다.
-- 다른 기기에서는 **같은 이름과 비밀번호**로 로그인합니다. 두 기기는 같은 클라우드 캘린더를 공유합니다.
-- 이름은 로그인 식별자라서 중복으로 만들 수 없습니다. 다른 사람이 쉽게 추측할 이름은 피하세요.
-- 이 MVP는 이메일을 통한 비밀번호 재설정 기능이 없습니다. 비밀번호를 잊으면 복구가 어려우므로 안전하게 보관하세요.
-- 이 방식은 한 쌍이 동일한 로그인 자격 증명을 공유하는 방식입니다. 향후에는 각자 별도 계정과 초대 코드로 공유하도록 개선할 수 있습니다.
+**중요:** 기존 사용자를 먼저 삭제하지 마세요. 비밀번호 이전이 완료되기 전에 삭제하면 기존 비밀번호를 검증할 수 없어 새 로그인 방식으로 전환하기 어려울 수 있습니다. SQL 실행 또는 첫 이전 로그인에서 오류가 나면 사용자를 삭제하지 말고 오류 내용을 확인하세요.
+
+이 로그인 방식은 계정 복구 이메일을 사용하지 않습니다. 비밀번호를 잊으면 복구가 어려우므로 안전하게 보관하세요. 공개되거나 추측하기 쉬운 캘린더 이름/비밀번호를 사용하지 마세요.
 
 ## 기존 일정 이전
 
