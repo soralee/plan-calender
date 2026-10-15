@@ -38,3 +38,6 @@ npm install
 npm run dev
 npm run build
 ```
+## 배포 자동화 확인
+
+`main` 브랜치에 커밋이 올라오면 GitHub Actions의 `Build check`가 `npm run build`를 실행합니다. Vercel 프로젝트의 Git 저장소 연결과 Production Branch도 `main`으로 설정되어 있어야 커밋마다 자동 배포됩니다.
