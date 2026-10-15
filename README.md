@@ -19,7 +19,7 @@ React + TypeScript + Vite로 만든 반응형 공유 캘린더입니다.
 
 ## 캘린더 이름 변경 기능 추가 설정
 
-계정 설정에서 캘린더 이름을 변경하려면 Supabase **SQL Editor**에서 `supabase/rename_household_login.sql` 파일 전체를 한 번 실행하세요. 이 함수는 현재 로그인한 사용자가 속한 캘린더 이름만 변경하며, 중복 이름은 거부합니다.
+계정 설정에서 캘린더 이름을 변경하고 변경된 이름으로 다시 로그인하려면 Supabase **SQL Editor**에서 `supabase/rename_household_login.sql` 파일 전체를 실행하세요. 코드가 업데이트된 경우 이 SQL 파일도 다시 실행해야 합니다. 캘린더 이름만 변경하고 Supabase Auth 이메일은 그대로 유지하며, 중복 이름은 거부합니다.
 
 ## 이름 + 비밀번호 로그인
 
