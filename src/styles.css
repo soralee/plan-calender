@@ -280,3 +280,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:680px){
   .month-controls .today-button{padding-left:12px;padding-right:12px}
 }
+
+
+/* Keep badges, titles and note details away from the left edge of entry cards */
+.entry-card{padding-left:12px}
+@media(max-width:680px){
+  .entry-card{padding-left:12px}
+}
