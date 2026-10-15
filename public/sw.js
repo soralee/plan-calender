@@ -1,5 +1,5 @@
-const CACHE_NAME = "our-calendar-shell-v3";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/calendar.svg"];
+const CACHE_NAME = "our-calendar-shell-v4";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/bori-calendar.jpg?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -29,7 +29,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === "/manifest.webmanifest" || url.pathname === "/icons/calendar.svg") {
+  if (url.pathname === "/manifest.webmanifest" || url.pathname === "/icons/bori-calendar.jpg") {
     event.respondWith(
       fetch(request).then((response) => {
         const copy = response.clone();
