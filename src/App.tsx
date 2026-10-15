@@ -462,7 +462,7 @@ export default function App() {
       </div>
     </header>
     <main>
-      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{household?.name || "우리의 캘린더"}</h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art bori-hero" aria-hidden="true"><img src="/images/bori-calendar-transparent.png" alt="" /></div></section>
+      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{household?.name || "우리의 캘린더"}</h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art bori-hero" aria-hidden="true"><img src="/images/B2D28C5E-759F-40B0-9C6A-DBF9740F65BE.png" alt="" /></div></section>
       <section className="stats-row">
         <div className="stat-card"><div><span>이번 달 일정</span><strong>{monthEntries.filter(e => e.kind === "일정").length}<small>개</small></strong></div></div>
         <div className="stat-card"><div><span>할 일 진행</span><strong>{doneCount}<small> / {taskCount}개</small></strong></div></div>
