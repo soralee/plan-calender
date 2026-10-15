@@ -310,3 +310,35 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     padding-right:6px;
   }
 }
+
+
+/* Make the YOUR TODAY actions comfortably tappable */
+.entry-actions{gap:8px}
+.icon-action{
+  display:inline-grid;
+  place-items:center;
+  min-width:40px;
+  min-height:40px;
+  padding:6px;
+  border:1px solid #ebe5f4;
+  border-radius:10px;
+  background:#fbfaff;
+  color:#6f6680;
+  font-size:20px;
+  line-height:1;
+}
+.icon-action[aria-label="삭제"]{color:#c65f69;background:#fff7f7;border-color:#f3dfe1;font-size:22px}
+.done-toggle{
+  min-height:40px;
+  padding:8px 11px;
+  border-radius:9px;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+@media(max-width:680px){
+  .entry-actions{gap:6px}
+  .icon-action{min-width:42px;min-height:42px;font-size:21px}
+  .icon-action[aria-label="삭제"]{font-size:23px}
+  .done-toggle{min-height:42px;padding:8px 10px;font-size:12px}
+}
