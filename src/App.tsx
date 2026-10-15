@@ -30,7 +30,7 @@ const internalEmail = async (name: string) => {
   const normalized = name.trim().toLocaleLowerCase("ko-KR");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
   const hex = Array.from(new Uint8Array(digest)).map(n => n.toString(16).padStart(2, "0")).join("");
-  return `u${hex}@login.our-calendar.invalid`;
+  return `u${hex}@our-calendar.app`;
 };
 const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
   household_id: householdId,
@@ -168,7 +168,14 @@ export default function App() {
         setHousehold(home as Household);
         setSession(data.session);
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
+        let { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
+        // 이전 버전에서 생성된 계정은 .invalid 주소를 사용하므로 기존 로그인도 지원합니다.
+        if (error) {
+          const legacyEmail = email.replace("@our-calendar.app", "@login.our-calendar.invalid");
+          const legacy = await supabase.auth.signInWithPassword({ email: legacyEmail, password: authPassword });
+          data = legacy.data;
+          error = legacy.error;
+        }
         if (error) throw new Error("이름 또는 비밀번호가 올바르지 않아요.");
         setSession(data.session);
       }
