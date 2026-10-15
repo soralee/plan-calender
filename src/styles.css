@@ -482,3 +482,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .entry-toolbar .done-toggle{padding:4px 5px;font-size:8px}
   .entry-toolbar .icon-action{padding:2px 3px}
 }
+
+
+/* Slightly enlarge assignee text to match the card typography */
+.entry-toolbar .entry-meta .meta-assignee{font-size:12px;line-height:1.4;gap:5px}
+.entry-toolbar .entry-meta .meta-assignee i{width:7px;height:7px;flex:0 0 7px}
+@media(max-width:420px){
+  .entry-toolbar .entry-meta .meta-assignee{font-size:12px}
+}
