@@ -1,4 +1,4 @@
-const CACHE_NAME = "our-calendar-shell-v1";
+const CACHE_NAME = "our-calendar-shell-v2";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/calendar.svg"];
 
 self.addEventListener("install", (event) => {
