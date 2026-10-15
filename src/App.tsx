@@ -60,6 +60,7 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [settingsPassword, setSettingsPassword] = useState("");
   const [settingsError, setSettingsError] = useState("");
@@ -304,8 +305,25 @@ export default function App() {
     <p className="auth-help">이름과 비밀번호는 두 기기에서 동일하게 입력해 주세요. 비밀번호를 잊으면 직접 복구하기 어려우니 안전하게 보관해 주세요.</p>
   </form></div>;
   return <div className="app-shell">
-    <header className="topbar"><a className="brand" href="#"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></a>
-      <div className="top-actions"><button className="text-button" onClick={openSettings}>계정 설정</button><button className="text-button" onClick={signOut}>로그아웃</button><button className="text-button" onClick={exportJson}>↧ <span>백업</span></button><button className="text-button" onClick={() => importRef.current?.click()}>↥ <span>가져오기</span></button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.currentTarget.value = ""; }}/><button className="add-button" onClick={() => openNew()}>＋ <span>새 항목</span></button></div>
+    <header className="topbar">
+      <a className="brand appbar-brand" href="#" aria-label="캘린더 홈">
+        <span className="brand-mark"><span></span><span></span><span></span><span></span></span>
+        <span className="calendar-title" title={household?.name || "우리의 캘린더"}>{household?.name || "우리의 캘린더"}</span>
+      </a>
+      <div className="top-actions">
+        <button className="add-button" onClick={() => openNew()}><span className="add-symbol">＋</span><span className="add-label">새 항목</span></button>
+        <div className="menu-wrap">
+          <button className="menu-button" aria-label="더보기 메뉴" aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)}><span></span><span></span><span></span></button>
+          {menuOpen && <><button className="menu-dismiss" aria-label="메뉴 닫기" onClick={() => setMenuOpen(false)}></button><div className="overflow-menu" role="menu">
+            <button role="menuitem" onClick={() => { setMenuOpen(false); openSettings(); }}>계정 설정</button>
+            <button role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>백업 다운로드</button>
+            <button role="menuitem" onClick={() => { setMenuOpen(false); importRef.current?.click(); }}>백업 가져오기</button>
+            <div className="menu-divider"></div>
+            <button role="menuitem" className="logout-menu-item" onClick={() => { setMenuOpen(false); void signOut(); }}>로그아웃</button>
+          </div></>}
+        </div>
+        <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.currentTarget.value = ""; }}/>
+      </div>
     </header>
     <main>
       <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{household?.name || "우리의 캘린더"}<span className="period">.</span></h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art" aria-hidden="true"><div className="sun"></div><div className="art-house"><div className="roof"></div><div className="house-body"><div className="window"></div><div className="door"></div></div></div><div className="plant"><i></i><i></i><i></i><b></b></div></div></section>
