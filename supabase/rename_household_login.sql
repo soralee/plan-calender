@@ -1,5 +1,5 @@
--- 캘린더 이름 변경을 위한 추가 SQL
--- Supabase SQL Editor에서 한 번 실행하세요.
+-- 캘린더 이름 변경 및 새 이름으로 로그인하기 위한 추가 SQL
+-- Supabase SQL Editor에서 이 파일 전체를 다시 실행하세요.
 
 create or replace function public.rename_household_login(p_new_login_name text)
 returns void
@@ -46,3 +46,21 @@ $$;
 
 revoke all on function public.rename_household_login(text) from public;
 grant execute on function public.rename_household_login(text) to authenticated;
+
+-- 캘린더 로그인 이름을 실제 Supabase Auth 이메일로 연결합니다.
+-- 반환되는 이메일은 내부 로그인용 주소이며, 사용자에게 메일을 보내는 용도가 아닙니다.
+create or replace function public.lookup_household_login_email(p_login_name text)
+returns text
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select u.email
+  from public.households h
+  join auth.users u on u.id = h.created_by
+  where lower(h.login_name) = lower(trim(p_login_name))
+  limit 1;
+$$;
+
+revoke all on function public.lookup_household_login_email(text) from public;
+grant execute on function public.lookup_household_login_email(text) to anon, authenticated;
