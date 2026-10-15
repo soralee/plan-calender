@@ -39,3 +39,72 @@
   .auth-screen { padding: 16px; }
   .auth-card { border-radius: 20px; }
 }
+
+
+/* Lavender theme */
+:root{
+  color:#302b3d;
+  background:#f7f4fc;
+  --ink:#302b3d;
+  --muted:#8f879f;
+  --line:#ebe5f4;
+  --green:#8b5cf6;
+}
+body{background:#f7f4fc;color:#302b3d}
+.topbar{background:rgba(255,255,255,.88);border-bottom-color:#ebe5f4}
+.brand-mark{background:#e9dfff}
+.brand-mark span{background:#8b5cf6}
+.brand-mark span:nth-child(2),.brand-mark span:nth-child(3){background:#c4b5fd}
+.brand small{color:#9a8eb8}
+.text-button{color:#786d91}
+.add-button,.save-button{background:#8b5cf6;border-color:#8b5cf6;box-shadow:0 4px 10px #8b5cf61c}
+.add-button:hover,.save-button:hover{background:#7650d8}
+.welcome-row .eyebrow{color:#9885c6}
+.period{color:#8b5cf6}
+.sun{background:#f3e8ff}
+.roof{background:#c4b5fd}
+.house-body{background:#ede7f6}
+.window{border-color:#a78bfa;background:#f8f5ff}
+.window:after{background:#a78bfa}
+.door{background:#c4b5fd}
+.plant{border-bottom-color:#e9d5ff}
+.plant i{background:#b9a3ed}
+.stat-card,.calendar-panel,.day-panel{border-color:#ebe5f4}
+.lavender{background:#ede7f6;color:#8b5cf6}
+.peach{background:#fce7f3;color:#c56c9d}
+.mint{background:#e5f6f2;color:#3e9f97}
+.day-cell{border-bottom-color:#f0ebf7}
+.day-cell.is-today .day-number{background:#e9dfff;color:#6d45cf}
+.day-cell.selected{background:#f8f5ff}
+.day-cell.selected .day-number{background:#8b5cf6;color:#fff}
+.moving{background:#c4b5fd}
+.home{background:#f0b6d5}
+.money{background:#b7a5f7}
+.work{background:#91b7f7}
+.personal{background:#e9a6d2}
+.other{background:#b8afd0}
+.round-add{background:#e9dfff;color:#7650d8}
+.filter-row button.active{background:#8b5cf6;border-color:#8b5cf6}
+.search-box{background:#fbfaff;border-color:#ebe5f4}
+.kind-pill.event{background:#f3e8ff;color:#7650d8}
+.kind-pill.task{background:#fce7f3;color:#ad578b}
+.assignee i{background:#c4b5fd}
+.assignee.partner i{background:#e9a6d2}
+.assignee.me i{background:#91b7f7}
+.done-toggle{border-color:#e5dafb;background:#f8f5ff;color:#7650d8}
+.wide-add{border-color:#d9cafa;background:#fbf9ff;color:#7650d8}
+.empty-illustration{background:#f3e8ff;color:#b7a5f7}
+.empty-state button{background:#e9dfff;color:#7650d8}
+.modal-backdrop{background:#30283d80}
+.close-modal{background:#f5f0fc;color:#8f879f}
+.field-label input,.field-label select,.field-label textarea{border-color:#e7def3}
+.field-label input:focus,.field-label select:focus,.field-label textarea:focus{border-color:#a78bfa}
+.choice-row button{border-color:#e7def3}
+.choice-row button.chosen{background:#f3e8ff;border-color:#c4b5fd;color:#7650d8}
+.cancel-button{border-color:#e7def3}
+.auth-screen{background:radial-gradient(circle at 15% 12%,#f3e8ff 0,transparent 36%),#f7f4fc}
+.auth-card{border-color:#e9dfff;background:#fff}
+.auth-card > p{color:#786f89}
+.auth-switch{color:#7650d8}
+.auth-help{border-top-color:#eee7f7}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#c4b5fd}
