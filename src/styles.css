@@ -606,3 +606,19 @@ body{overflow-x:clip}
 @media(max-width:360px){
   .stat-card span{font-size:10px}
 }
+
+
+/* Give the app a true viewport-width shell and enlarge summary headings */
+html,body,#root{width:100%;max-width:100%;margin:0}
+html{overflow-x:clip}
+body{width:100%;overflow-x:clip}
+#root,.app-shell{width:100%;max-width:100%;overflow-x:clip}
+.topbar{width:100%;max-width:100%}
+main{width:100%;max-width:1200px;min-width:0}
+.stat-card span{font-size:17px}
+@media(max-width:680px){
+  .stat-card span{font-size:clamp(12px, 3.2vw, 15px)}
+}
+@media(max-width:360px){
+  .stat-card span{font-size:11px}
+}
