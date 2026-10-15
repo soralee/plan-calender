@@ -749,3 +749,16 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .welcome-art{transform:translate(-3px,3px)!important}
 }
+
+
+/* Final hero alignment: move the Bori illustration toward the shared right inset */
+.welcome-art{transform:translate(64px,8px)!important}
+@media(max-width:900px){
+  .welcome-art{transform:translate(42px,6px)!important}
+}
+@media(max-width:680px){
+  .welcome-art{transform:translate(24px,4px)!important}
+}
+@media(max-width:360px){
+  .welcome-art{transform:translate(12px,3px)!important}
+}
