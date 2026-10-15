@@ -446,7 +446,7 @@ export default function App() {
       </div>
     </header>
     <main>
-      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{(household?.name || "우리의 캘린더").replace(/[.。]+\\s*$/, "")}</h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art" aria-hidden="true"><div className="sun"></div><div className="art-house"><div className="roof"></div><div className="house-body"><div className="window"></div><div className="door"></div></div></div><div className="plant"><i></i><i></i><i></i><b></b></div></div></section>
+      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{household?.name || "우리의 캘린더"}</h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art" aria-hidden="true"><div className="sun"></div><div className="art-house"><div className="roof"></div><div className="house-body"><div className="window"></div><div className="door"></div></div></div><div className="plant"><i></i><i></i><i></i><b></b></div></div></section>
       <section className="stats-row">
         <div className="stat-card"><div className="stat-icon lavender">▦</div><div><span>이번 달 일정</span><strong>{monthEntries.filter(e => e.kind === "일정").length}<small>개</small></strong></div></div>
         <div className="stat-card"><div className="stat-icon peach">✓</div><div><span>할 일 진행</span><strong>{doneCount}<small> / {taskCount}개</small></strong></div></div>
