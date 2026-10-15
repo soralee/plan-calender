@@ -78,7 +78,7 @@ begin
 
   insert into public.household_members (household_id, user_id, role)
   values (target.id, auth.uid(), 'member')
-  on conflict (household_id, user_id) do nothing;
+  on conflict on constraint household_members_pkey do nothing;
 
   return query select target.id, target.name, target.login_name;
 end;
