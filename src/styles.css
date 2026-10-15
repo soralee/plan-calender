@@ -574,3 +574,25 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .stat-card strong{font-size:21px}
   .stat-card strong small{font-size:12px}
 }
+
+
+/* Center summary-card text and prevent the page from overflowing horizontally */
+.stat-card>div:last-child{align-items:center;text-align:center}
+.stat-card span{width:100%;text-align:center;justify-content:center}
+.stat-card strong{justify-content:center;width:100%}
+html,body,#root,.app-shell{max-width:100%;min-width:0}
+body{overflow-x:clip}
+@media(max-width:900px){
+  main{width:100%;min-width:0}
+  .stats-row,.workspace,.welcome-row{min-width:0;max-width:100%}
+  .stats-row>*{min-width:0}
+  .workspace>*{min-width:0}
+  .welcome-row>*{min-width:0}
+}
+@media(max-width:680px){
+  .stat-card>div:last-child{align-items:center}
+  .stat-card span{white-space:nowrap}
+  .stats-row{width:100%}
+  .calendar-panel,.day-panel{width:100%;min-width:0}
+  .calendar-legend{max-width:100%}
+}
