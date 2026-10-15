@@ -108,3 +108,6 @@ body{background:#f7f4fc;color:#302b3d}
 .auth-switch{color:#7650d8}
 .auth-help{border-top-color:#eee7f7}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#c4b5fd}
+
+.settings-description{margin:-8px 0 18px;color:#786f89;font-size:12px;line-height:1.7}
+.settings-success{padding:12px 14px;border-radius:12px;background:#edf8f2;color:#367653;font-size:13px;line-height:1.55;margin-bottom:14px}
