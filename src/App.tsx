@@ -170,10 +170,17 @@ export default function App() {
     const name = authName.trim();
     if (name.length < 2 || name.length > 40) { setAuthError("캘린더 이름은 2~40자로 입력해 주세요."); return; }
     if (authPassword.length < 8) { setAuthError("비밀번호는 8자 이상 입력해 주세요."); return; }
-    setAuthBusy(true); setAuthError("");
+
+    setAuthError("");
+    // Check duplicate names before changing the screen/session into the loading state.
+    setAuthBusy(true);
     try {
       const { data: current, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
+
+      // If an anonymous session is already present, the RPC can validate the name
+      // while the current form remains visible. The database function returns a clear
+      // duplicate-name message and only creates a session membership on success.
       if (!current.session) {
         const { error: anonError } = await supabase.auth.signInAnonymously();
         if (anonError) throw new Error("익명 로그인 실패: " + anonError.message);
@@ -181,13 +188,24 @@ export default function App() {
       const { data, error } = await supabase.rpc("create_household_with_password", {
         p_name: name, p_login_name: name, p_password: authPassword
       });
-      if (error) throw new Error("캘린더 생성 실패: " + error.message);
+      if (error) {
+        const message = error.message || "";
+        if (message.toLowerCase().includes("already") || message.includes("이미 사용 중")) {
+          setAuthError("이미 사용 중인 캘린더 이름이에요. 다른 이름을 입력해 주세요.");
+        } else {
+          setAuthError("캘린더를 등록하지 못했어요. " + message);
+        }
+        return;
+      }
       const home = Array.isArray(data) ? data[0] : data;
-      if (!home?.household_id) throw new Error("새 캘린더 정보를 확인할 수 없어요.");
+      if (!home?.household_id) {
+        setAuthError("새 캘린더 정보를 확인할 수 없어요.");
+        return;
+      }
       const { data: sessionData, error: refreshedSessionError } = await supabase.auth.getSession();
       if (refreshedSessionError) throw refreshedSessionError;
-      setSession(sessionData.session);
       setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name || name });
+      setSession(sessionData.session);
       setAuthPassword("");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "캘린더를 만들지 못했어요.");
