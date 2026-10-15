@@ -596,3 +596,13 @@ body{overflow-x:clip}
   .calendar-panel,.day-panel{width:100%;min-width:0}
   .calendar-legend{max-width:100%}
 }
+
+
+/* Slightly increase summary-card title size */
+.stat-card span{font-size:16px}
+@media(max-width:680px){
+  .stat-card span{font-size:clamp(11px, 3vw, 14px)}
+}
+@media(max-width:360px){
+  .stat-card span{font-size:10px}
+}
