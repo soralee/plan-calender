@@ -56,7 +56,6 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "create">("login");
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -146,56 +145,39 @@ export default function App() {
     ev.preventDefault();
     if (!supabase) return;
     const name = authName.trim();
-    if (name.length < 2 || name.length > 40) { setAuthError("이름은 2~40자로 입력해 주세요."); return; }
-    if (authPassword.length < 8) { setAuthError("비밀번호는 8자 이상 입력해 주세요."); return; }
-    setAuthBusy(true); setAuthError("");
+    if (name.length < 2 || name.length > 40) { setAuthError('캘린더 이름은 2~40자로 입력해 주세요.'); return; }
+    if (authPassword.length < 8) { setAuthError('비밀번호는 8자 이상 입력해 주세요.'); return; }
+    setAuthBusy(true); setAuthError('');
     try {
-      const email = await internalEmail(name);
-      if (authMode === "create") {
-        const { data, error } = await supabase.auth.signUp({ email, password: authPassword });
-        if (error) throw error;
-        if (!data.session) throw new Error("Supabase에서 이메일 확인 기능을 꺼야 가입이 바로 완료됩니다. README 설정을 확인해 주세요.");
-        const { error: householdError } = await supabase.rpc("create_household", { p_name: "우리의 캘린더", p_login_name: name });
-        if (householdError) {
-          await supabase.auth.signOut();
-          throw householdError;
-        }
-        const { data: membership, error: memberError } = await supabase.from("household_members")
-          .select("household_id").eq("user_id", data.user!.id).limit(1).maybeSingle();
-        if (memberError || !membership) throw new Error("캘린더 생성은 완료됐지만 연결 정보를 불러오지 못했어요. 다시 로그인해 주세요.");
-        const { data: home, error: homeError } = await supabase.from("households")
-          .select("id,name,login_name").eq("id", membership.household_id).maybeSingle();
-        if (homeError || !home) throw new Error("캘린더 정보를 불러오지 못했어요.");
-        setHousehold(home as Household);
-        setSession(data.session);
-      } else {
-        // 캘린더 이름으로 실제 Supabase 계정 이메일을 조회합니다.
-        // 이름 변경 후에도 인증 이메일을 바꾸지 않으므로 기존 계정으로 로그인할 수 있습니다.
-        const { data: accountEmail, error: lookupError } = await supabase.rpc("lookup_household_login_email", { p_login_name: name });
-        let data: any = null;
-        let error: any = lookupError;
-        if (!lookupError && typeof accountEmail === "string" && accountEmail) {
-          const result = await supabase.auth.signInWithPassword({ email: accountEmail, password: authPassword });
-          data = result.data;
-          error = result.error;
-        } else {
-          // 이전 버전 계정 호환: 조회 함수가 아직 설치되지 않은 경우 기존 내부 이메일로 로그인합니다.
-          const candidates = [
-            email,
-            email.replace("@our-calendar.app", "@login.our-calendar.invalid")
-          ];
-          for (const candidate of candidates) {
-            const result = await supabase.auth.signInWithPassword({ email: candidate, password: authPassword });
-            data = result.data;
-            error = result.error;
-            if (!error) break;
-          }
-        }
-        if (error) throw new Error("이름 또는 비밀번호가 올바르지 않아요. 이름 변경 기능을 사용하려면 Supabase SQL 설정도 업데이트해 주세요.");
-        setSession(data.session);
+      const { data: current } = await supabase.auth.getSession();
+      if (!current.session) {
+        const { error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError) throw new Error('익명 로그인을 사용할 수 없어요. Supabase에서 Anonymous Sign-Ins를 활성화해 주세요.');
       }
+      const { data: loginData, error: loginError } = await supabase.rpc('login_household', { p_login_name: name, p_password: authPassword });
+      if (!loginError) {
+        const home = Array.isArray(loginData) ? loginData[0] : loginData;
+        if (!home || !home.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
+        const { data: sessionData } = await supabase.auth.getSession();
+        setSession(sessionData.session);
+        setHousehold({ id: home.household_id, name: home.household_name, login_name: home.login_name });
+        return;
+      }
+      await supabase.auth.signOut();
+      const { data: accountEmail, error: lookupError } = await supabase.rpc('lookup_household_login_email', { p_login_name: name });
+      if (lookupError || typeof accountEmail !== 'string' || !accountEmail) throw new Error('캘린더 이름 또는 비밀번호가 올바르지 않아요.');
+      const { data: legacyData, error: legacyError } = await supabase.auth.signInWithPassword({ email: accountEmail, password: authPassword });
+      if (legacyError || !legacyData.session) throw new Error('캘린더 이름 또는 비밀번호가 올바르지 않아요.');
+      const { error: migrateError } = await supabase.rpc('migrate_household_password', { p_password: authPassword });
+      if (migrateError) throw new Error('기존 계정을 새 로그인 방식으로 이전하지 못했어요. 이전용 SQL을 확인해 주세요.');
+      const { data: migratedData, error: migratedError } = await supabase.rpc('login_household', { p_login_name: name, p_password: authPassword });
+      if (migratedError) throw migratedError;
+      const migratedHome = Array.isArray(migratedData) ? migratedData[0] : migratedData;
+      if (!migratedHome || !migratedHome.household_id) throw new Error('캘린더 정보를 찾을 수 없어요.');
+      setSession(legacyData.session);
+      setHousehold({ id: migratedHome.household_id, name: migratedHome.household_name, login_name: migratedHome.login_name });
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "로그인 중 문제가 발생했어요.");
+      setAuthError(error instanceof Error ? error.message : '로그인 중 문제가 발생했어요.');
     } finally { setAuthBusy(false); }
   };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setHousehold(null); };
@@ -223,7 +205,7 @@ export default function App() {
         setHousehold({ ...household, name: nextName, login_name: nextName });
       }
       if (settingsPassword) {
-        const { error: passwordError } = await supabase.auth.updateUser({ password: settingsPassword });
+        const { error: passwordError } = await supabase.rpc("update_household_password", { p_password: settingsPassword });
         if (passwordError) throw passwordError;
       }
       setSettingsPassword("");
@@ -294,15 +276,14 @@ export default function App() {
   if (session && !household) return <div className="auth-screen"><section className="auth-card"><h1>캘린더를 불러오는 중이에요</h1>{cloudError && <p className="auth-error">{cloudError}</p>}<button className="auth-switch" onClick={signOut}>로그아웃</button></section></div>;
   if (!session) return <div className="auth-screen"><form className="auth-card" onSubmit={handleAuth}>
     <div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div>
-    <div className="eyebrow">YOUR SHARED SPACE</div><h1>{authMode === "create" ? "우리의 캘린더 만들기" : "캘린더에 로그인하기"}</h1>
+    <div className="eyebrow">YOUR SHARED SPACE</div><h1>캘린더에 로그인하기</h1>
     <p>두 기기에서 같은 이름과 비밀번호를 사용하면 같은 일정을 볼 수 있어요.</p>
     {cloudError && <div className="auth-error">{cloudError}</div>}
     {authError && <div className="auth-error">{authError}</div>}
     <label className="field-label">캘린더 이름<input required minLength={2} maxLength={40} autoComplete="username" value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="예: 우리 둘의 캘린더"/></label>
-    <label className="field-label">비밀번호<input required minLength={8} type="password" autoComplete={authMode === "create" ? "new-password" : "current-password"} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="8자 이상"/></label>
-    <button type="submit" className="save-button auth-submit" disabled={authBusy}>{authBusy ? "처리 중…" : authMode === "create" ? "캘린더 만들기" : "로그인"}</button>
-    <button type="button" className="auth-switch" onClick={()=>{setAuthMode(authMode==="create"?"login":"create");setAuthError("");}}>{authMode === "create" ? "이미 계정이 있나요? 로그인" : "처음 이용하시나요? 새 캘린더 만들기"}</button>
-    <p className="auth-help">이름과 비밀번호는 두 기기에서 동일하게 입력해 주세요. 비밀번호를 잊으면 직접 복구하기 어려우니 안전하게 보관해 주세요.</p>
+    <label className="field-label">비밀번호<input required minLength={8} type="password" autoComplete="current-password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="8자 이상"/></label>
+    <button type="submit" className="save-button auth-submit" disabled={authBusy}>{authBusy ? "확인 중…" : "로그인"}</button>
+    <p className="auth-help">회원가입 없이 기존 캘린더 이름과 비밀번호로 로그인하세요. 비밀번호는 안전하게 보관해 주세요.</p>
   </form></div>;
   return <div className="app-shell">
     <header className="topbar">
