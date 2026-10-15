@@ -685,3 +685,18 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .welcome-art{transform:translate(-6px,3px) scale(.62);transform-origin:right center}
 }
+
+
+/* Bori photo replaces the decorative house in the welcome hero */
+.welcome-art.bori-hero{background:transparent;box-shadow:none;overflow:visible;display:flex;align-items:center;justify-content:center}
+.welcome-art.bori-hero::before,.welcome-art.bori-hero::after{display:none}
+.welcome-art.bori-hero img{display:block;width:100%;height:auto;max-height:240px;object-fit:contain;border-radius:0}
+@media(max-width:900px){
+  .welcome-art.bori-hero img{max-height:190px}
+}
+@media(max-width:680px){
+  .welcome-art.bori-hero img{max-height:140px}
+}
+@media(max-width:360px){
+  .welcome-art.bori-hero img{max-height:110px}
+}
