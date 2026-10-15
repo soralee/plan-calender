@@ -6,7 +6,6 @@ type Assignee = "나" | "배우자" | "함께";
 type Kind = "일정" | "할 일";
 type Entry = { id: string; title: string; date: string; time?: string; kind: Kind; assignee: Assignee; category: string; done: boolean; note?: string };
 const STORAGE_KEY = "our-calendar-entries-v1";
-const categories = ["이사", "집", "금융", "일", "개인", "기타"];
 const today = new Date();
 const pad = (n: number) => String(n).padStart(2, "0");
 const dateKey = (d: Date) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
@@ -18,7 +17,6 @@ const seed: Entry[] = [
   { id: "e5", title: "보리와 새집 이동", date: "2026-11-02", time: "오후", kind: "일정", assignee: "함께", category: "이사", done: false },
   { id: "e6", title: "욕실 조명 LED 교체", date: "2026-10-30", kind: "할 일", assignee: "배우자", category: "집", done: false },
 ];
-const categoryClass = (category: string) => ({ "이사": "moving", "집": "home", "금융": "money", "일": "work", "개인": "personal", "기타": "other" }[category] || "other");
 
 const readLocalEntries = (): Entry[] => {
   try {
@@ -67,7 +65,7 @@ export default function App() {
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportDate, setBulkImportDate] = useState(dateKey(today));
   const [bulkImportAssignee, setBulkImportAssignee] = useState<Assignee>("나");
-  const [bulkImportCategory, setBulkImportCategory] = useState("개인");
+  const [bulkImportCategory] = useState("개인");
   const [bulkImportError, setBulkImportError] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);
   const [settingsName, setSettingsName] = useState("");
