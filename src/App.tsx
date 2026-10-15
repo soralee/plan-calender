@@ -115,6 +115,13 @@ export default function App() {
           await supabase.auth.signOut();
           throw householdError;
         }
+        const { data: membership, error: memberError } = await supabase.from("household_members")
+          .select("household_id").eq("user_id", data.user!.id).limit(1).maybeSingle();
+        if (memberError || !membership) throw new Error("캘린더 생성은 완료됐지만 연결 정보를 불러오지 못했어요. 다시 로그인해 주세요.");
+        const { data: home, error: homeError } = await supabase.from("households")
+          .select("id,name,login_name").eq("id", membership.household_id).maybeSingle();
+        if (homeError || !home) throw new Error("캘린더 정보를 불러오지 못했어요.");
+        setHousehold(home as Household);
         setSession(data.session);
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
@@ -175,7 +182,8 @@ export default function App() {
         } } catch { window.alert("올바른 캘린더 JSON 파일이 아닙니다."); } }; reader.readAsText(file); };
   if (!isCloudConfigured) return <div className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div><h1>클라우드 설정이 필요해요</h1><p>Supabase 프로젝트를 만든 뒤 Vercel 환경 변수에 Project URL과 publishable/anon key를 추가해 주세요.</p><p className="auth-help">설정 방법은 저장소의 README.md에서 확인할 수 있어요.</p></section></div>;
   if (!authReady) return <div className="auth-screen"><section className="auth-card"><p>클라우드 연결을 확인하고 있어요…</p></section></div>;
-  if (!session || !household) return <div className="auth-screen"><form className="auth-card" onSubmit={handleAuth}>
+  if (session && !household) return <div className="auth-screen"><section className="auth-card"><h1>캘린더를 불러오는 중이에요</h1>{cloudError && <p className="auth-error">{cloudError}</p>}<button className="auth-switch" onClick={signOut}>로그아웃</button></section></div>;
+  if (!session) return <div className="auth-screen"><form className="auth-card" onSubmit={handleAuth}>
     <div className="brand auth-brand"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></div>
     <div className="eyebrow">YOUR SHARED SPACE</div><h1>{authMode === "create" ? "우리의 캘린더 만들기" : "캘린더에 로그인하기"}</h1>
     <p>두 기기에서 같은 이름과 비밀번호를 사용하면 같은 일정을 볼 수 있어요.</p>
@@ -187,7 +195,6 @@ export default function App() {
     <button type="button" className="auth-switch" onClick={()=>{setAuthMode(authMode==="create"?"login":"create");setAuthError("");}}>{authMode === "create" ? "이미 계정이 있나요? 로그인" : "처음 이용하시나요? 새 캘린더 만들기"}</button>
     <p className="auth-help">이름과 비밀번호는 두 기기에서 동일하게 입력해 주세요. 비밀번호를 잊으면 직접 복구하기 어려우니 안전하게 보관해 주세요.</p>
   </form></div>;
-  if (session && !household) return <div className="auth-screen"><section className="auth-card"><h1>캘린더를 불러오는 중이에요</h1>{cloudError && <p className="auth-error">{cloudError}</p>}<button className="auth-switch" onClick={signOut}>로그아웃</button></section></div>;
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="#"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></a>
       <div className="top-actions"><button className="text-button" onClick={signOut}>로그아웃</button><button className="text-button" onClick={exportJson}>↧ <span>백업</span></button><button className="text-button" onClick={() => importRef.current?.click()}>↥ <span>가져오기</span></button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.currentTarget.value = ""; }}/><button className="add-button" onClick={() => openNew()}>＋ <span>새 항목</span></button></div>
