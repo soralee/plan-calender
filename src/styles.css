@@ -736,3 +736,16 @@ main{width:100%;max-width:1200px;min-width:0}
   .welcome-row{padding-right:0!important}
   .welcome-art{transform:translateY(3px)!important}
 }
+
+
+/* Fine-tune hero artwork spacing to balance app bar and summary-card insets */
+.welcome-art{transform:translate(-6px,8px)!important}
+@media(max-width:900px){
+  .welcome-art{transform:translate(-5px,6px)!important}
+}
+@media(max-width:680px){
+  .welcome-art{transform:translate(-4px,4px)!important}
+}
+@media(max-width:360px){
+  .welcome-art{transform:translate(-3px,3px)!important}
+}
