@@ -26,12 +26,7 @@ const readLocalEntries = (): Entry[] => {
     return saved ? JSON.parse(saved) as Entry[] : seed;
   } catch { return seed; }
 };
-const internalEmail = async (name: string) => {
-  const normalized = name.trim().toLocaleLowerCase("ko-KR");
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
-  const hex = Array.from(new Uint8Array(digest)).map(n => n.toString(16).padStart(2, "0")).join("");
-  return `u${hex}@our-calendar.app`;
-};
+
 const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
   household_id: householdId,
   id: entry.id,
