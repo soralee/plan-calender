@@ -85,3 +85,50 @@ revoke all on function public.create_household_with_password(text, text, text) f
 revoke all on function public.delete_household_with_password(text) from public;
 grant execute on function public.create_household_with_password(text, text, text) to authenticated;
 grant execute on function public.delete_household_with_password(text) to authenticated;
+
+
+-- Shared display names for the two people using a household calendar.
+alter table public.households
+  add column if not exists member_one_name text not null default '나',
+  add column if not exists member_two_name text not null default '배우자';
+
+create or replace function public.update_household_member_names(
+  p_member_one_name text,
+  p_member_two_name text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_id uuid;
+  clean_one text := trim(coalesce(p_member_one_name, ''));
+  clean_two text := trim(coalesce(p_member_two_name, ''));
+begin
+  if auth.uid() is null then
+    raise exception '로그인이 필요합니다.';
+  end if;
+  if length(clean_one) < 1 or length(clean_one) > 20
+     or length(clean_two) < 1 or length(clean_two) > 20 then
+    raise exception '두 사람의 이름은 1~20자로 입력해 주세요.';
+  end if;
+  if lower(clean_one) = lower(clean_two) then
+    raise exception '두 사람의 이름은 서로 다르게 입력해 주세요.';
+  end if;
+  select hm.household_id into target_id
+  from public.household_members hm
+  where hm.user_id = auth.uid()
+  order by hm.created_at desc
+  limit 1;
+  if target_id is null then
+    raise exception '공유 캘린더를 찾을 수 없습니다.';
+  end if;
+  update public.households
+  set member_one_name = clean_one, member_two_name = clean_two
+  where id = target_id;
+end;
+$$;
+
+revoke all on function public.update_household_member_names(text, text) from public;
+grant execute on function public.update_household_member_names(text, text) to authenticated;
