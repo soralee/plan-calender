@@ -342,3 +342,68 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .icon-action[aria-label="삭제"]{font-size:23px}
   .done-toggle{min-height:42px;padding:8px 10px;font-size:12px}
 }
+
+
+/* Harmonize entry actions with the calendar typography and card layout */
+.entry-footer{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:9px;
+  margin-top:12px;
+}
+.entry-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px;
+  flex-wrap:wrap;
+  width:100%;
+}
+.done-toggle{
+  min-height:40px;
+  padding:0 13px;
+  border:1px solid #e5e9e1;
+  border-radius:9px;
+  background:#f4f7f1;
+  color:#607b63;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.2;
+  white-space:nowrap;
+}
+.icon-action{
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 40px;
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  padding:0;
+  border:1px solid #e9eae4;
+  border-radius:9px;
+  background:#fafaf7;
+  color:#777d73;
+  font-size:20px;
+  line-height:1;
+}
+.icon-action[aria-label="삭제"]{
+  border-color:#f0e3e2;
+  background:#fff9f8;
+  color:#c46e72;
+  font-size:22px;
+}
+.entry-note{
+  margin-top:10px;
+  font-size:12px;
+  line-height:1.65;
+  overflow-wrap:anywhere;
+}
+@media(max-width:680px){
+  .entry-footer{gap:8px;margin-top:11px}
+  .entry-actions{gap:7px}
+  .done-toggle{min-height:40px;padding:0 12px;font-size:11px}
+  .icon-action{flex-basis:40px;width:40px;min-width:40px;height:40px;min-height:40px}
+  .entry-note{font-size:12px;line-height:1.65}
+}
