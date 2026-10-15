@@ -17,6 +17,10 @@ React + TypeScript + Vite로 만든 반응형 공유 캘린더입니다.
 
 **보안:** 브라우저용 publishable/anon key만 사용하세요. `service_role` 또는 secret key를 프론트엔드나 `VITE_*` 환경 변수에 절대 넣지 마세요. 데이터 테이블에는 Row Level Security(RLS) 정책이 적용되어 있습니다.
 
+## 캘린더 이름 변경 기능 추가 설정
+
+계정 설정에서 캘린더 이름을 변경하려면 Supabase **SQL Editor**에서 `supabase/rename_household_login.sql` 파일 전체를 한 번 실행하세요. 이 함수는 현재 로그인한 사용자가 속한 캘린더 이름만 변경하며, 중복 이름은 거부합니다.
+
 ## 이름 + 비밀번호 로그인
 
 - 첫 기기에서 **캘린더 만들기**를 선택하고 이름과 8자 이상 비밀번호를 설정합니다.
