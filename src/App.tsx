@@ -168,15 +168,29 @@ export default function App() {
         setHousehold(home as Household);
         setSession(data.session);
       } else {
-        let { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
-        // 이전 버전에서 생성된 계정은 .invalid 주소를 사용하므로 기존 로그인도 지원합니다.
-        if (error) {
-          const legacyEmail = email.replace("@our-calendar.app", "@login.our-calendar.invalid");
-          const legacy = await supabase.auth.signInWithPassword({ email: legacyEmail, password: authPassword });
-          data = legacy.data;
-          error = legacy.error;
+        // 캘린더 이름으로 실제 Supabase 계정 이메일을 조회합니다.
+        // 이름 변경 후에도 인증 이메일을 바꾸지 않으므로 기존 계정으로 로그인할 수 있습니다.
+        const { data: accountEmail, error: lookupError } = await supabase.rpc("lookup_household_login_email", { p_login_name: name });
+        let data: any = null;
+        let error: any = lookupError;
+        if (!lookupError && typeof accountEmail === "string" && accountEmail) {
+          const result = await supabase.auth.signInWithPassword({ email: accountEmail, password: authPassword });
+          data = result.data;
+          error = result.error;
+        } else {
+          // 이전 버전 계정 호환: 조회 함수가 아직 설치되지 않은 경우 기존 내부 이메일로 로그인합니다.
+          const candidates = [
+            email,
+            email.replace("@our-calendar.app", "@login.our-calendar.invalid")
+          ];
+          for (const candidate of candidates) {
+            const result = await supabase.auth.signInWithPassword({ email: candidate, password: authPassword });
+            data = result.data;
+            error = result.error;
+            if (!error) break;
+          }
         }
-        if (error) throw new Error("이름 또는 비밀번호가 올바르지 않아요.");
+        if (error) throw new Error("이름 또는 비밀번호가 올바르지 않아요. 이름 변경 기능을 사용하려면 Supabase SQL 설정도 업데이트해 주세요.");
         setSession(data.session);
       }
     } catch (error) {
@@ -202,14 +216,9 @@ export default function App() {
     setAuthBusy(true); setSettingsError(""); setSettingsMessage("");
     try {
       if (nameChanged) {
-        const nextEmail = await internalEmail(nextName);
-        const { error: authError } = await supabase.auth.updateUser({ email: nextEmail });
-        if (authError) throw authError;
+        // Supabase Auth 이메일은 변경하지 않고, 캘린더의 로그인 이름만 변경합니다.
         const { error: renameError } = await supabase.rpc("rename_household_login", { p_new_login_name: nextName });
-        if (renameError) {
-          await supabase.auth.updateUser({ email: await internalEmail(household.login_name) });
-          throw renameError;
-        }
+        if (renameError) throw renameError;
         setHousehold({ ...household, name: nextName, login_name: nextName });
       }
       if (settingsPassword) {
