@@ -451,3 +451,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:680px){
   .entry-meta .assignee{font-size:11px}
 }
+
+
+/* Keep assignee inline with the event type badge */
+.entry-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.entry-meta .meta-assignee{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11px;
+  line-height:1.35;
+  margin:0;
+}
+.entry-meta .meta-assignee i{width:6px;height:6px;flex:0 0 6px}
+.entry-meta .time-label{margin-left:auto}
+.entry-footer .assignee{display:none}
