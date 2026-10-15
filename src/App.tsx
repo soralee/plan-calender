@@ -59,6 +59,11 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "create">("login");
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsPassword, setSettingsPassword] = useState("");
+  const [settingsError, setSettingsError] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(dateKey(today));
@@ -172,6 +177,44 @@ export default function App() {
     } finally { setAuthBusy(false); }
   };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setHousehold(null); };
+  const openSettings = () => {
+    setSettingsName(household?.login_name || "");
+    setSettingsPassword("");
+    setSettingsError("");
+    setSettingsMessage("");
+    setSettingsOpen(true);
+  };
+  const saveSettings = async (ev: FormEvent) => {
+    ev.preventDefault();
+    if (!supabase || !session || !household) return;
+    const nextName = settingsName.trim();
+    const nameChanged = nextName.toLocaleLowerCase("ko-KR") !== household.login_name.toLocaleLowerCase("ko-KR");
+    if (nameChanged && (nextName.length < 2 || nextName.length > 40)) { setSettingsError("이름은 2~40자로 입력해 주세요."); return; }
+    if (settingsPassword && settingsPassword.length < 8) { setSettingsError("새 비밀번호는 8자 이상 입력해 주세요."); return; }
+    if (!nameChanged && !settingsPassword) { setSettingsError("변경할 이름이나 새 비밀번호를 입력해 주세요."); return; }
+    setAuthBusy(true); setSettingsError(""); setSettingsMessage("");
+    try {
+      if (nameChanged) {
+        const nextEmail = await internalEmail(nextName);
+        const { error: authError } = await supabase.auth.updateUser({ email: nextEmail });
+        if (authError) throw authError;
+        const { error: renameError } = await supabase.rpc("rename_household_login", { p_new_login_name: nextName });
+        if (renameError) {
+          await supabase.auth.updateUser({ email: await internalEmail(household.login_name) });
+          throw renameError;
+        }
+        setHousehold({ ...household, name: nextName, login_name: nextName });
+      }
+      if (settingsPassword) {
+        const { error: passwordError } = await supabase.auth.updateUser({ password: settingsPassword });
+        if (passwordError) throw passwordError;
+      }
+      setSettingsPassword("");
+      setSettingsMessage("변경사항을 저장했어요. 다른 기기에서도 다음 로그인부터 새 이름과 비밀번호를 사용해 주세요.");
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : "설정을 변경하지 못했어요.");
+    } finally { setAuthBusy(false); }
+  };
   const monthLabel = month.getFullYear() + "년 " + (month.getMonth() + 1) + "월";
   const calendarDays = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -246,10 +289,10 @@ export default function App() {
   </form></div>;
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="#"><span className="brand-mark"><span></span><span></span><span></span><span></span></span><span>우리의 캘린더<small>OUR LITTLE PLANS</small></span></a>
-      <div className="top-actions"><button className="text-button" onClick={signOut}>로그아웃</button><button className="text-button" onClick={exportJson}>↧ <span>백업</span></button><button className="text-button" onClick={() => importRef.current?.click()}>↥ <span>가져오기</span></button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.currentTarget.value = ""; }}/><button className="add-button" onClick={() => openNew()}>＋ <span>새 항목</span></button></div>
+      <div className="top-actions"><button className="text-button" onClick={openSettings}>계정 설정</button><button className="text-button" onClick={signOut}>로그아웃</button><button className="text-button" onClick={exportJson}>↧ <span>백업</span></button><button className="text-button" onClick={() => importRef.current?.click()}>↥ <span>가져오기</span></button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.currentTarget.value = ""; }}/><button className="add-button" onClick={() => openNew()}>＋ <span>새 항목</span></button></div>
     </header>
     <main>
-      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>우리의 하루를<br className="mobile-break"/> 함께 계획해요<span className="period">.</span></h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art" aria-hidden="true"><div className="sun"></div><div className="art-house"><div className="roof"></div><div className="house-body"><div className="window"></div><div className="door"></div></div></div><div className="plant"><i></i><i></i><i></i><b></b></div></div></section>
+      <section className="welcome-row"><div><div className="eyebrow">TOGETHER, DAY BY DAY</div><h1>{household?.name || "우리의 캘린더"}<span className="period">.</span></h1><p>작은 계획도 함께라면 더 든든하니까.</p></div><div className="welcome-art" aria-hidden="true"><div className="sun"></div><div className="art-house"><div className="roof"></div><div className="house-body"><div className="window"></div><div className="door"></div></div></div><div className="plant"><i></i><i></i><i></i><b></b></div></div></section>
       <section className="stats-row">
         <div className="stat-card"><div className="stat-icon lavender">▦</div><div><span>이번 달 일정</span><strong>{monthEntries.filter(e => e.kind === "일정").length}<small>개</small></strong></div></div>
         <div className="stat-card"><div className="stat-icon peach">✓</div><div><span>할 일 진행</span><strong>{doneCount}<small> / {taskCount}개</small></strong></div></div>
@@ -272,6 +315,14 @@ export default function App() {
       </section>
       <footer className="footer"><span>둘이 함께 채워가는 작은 기록</span><span>저장 위치: 클라우드 <i>·</i> {household?.name} <i>·</i> 기기 간 동기화 사용 중</span></footer>
     </main>
+    {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><form className="entry-modal" onSubmit={saveSettings}><div className="modal-heading"><div><div className="eyebrow">ACCOUNT SETTINGS</div><h2>계정 설정</h2></div><button type="button" className="close-modal" onClick={()=>setSettingsOpen(false)} aria-label="닫기">×</button></div>
+      <p className="settings-description">이름을 바꾸면 캘린더 제목과 로그인 이름이 함께 변경돼요. 비밀번호는 변경할 때만 입력하세요.</p>
+      {settingsError&&<div className="auth-error">{settingsError}</div>}
+      {settingsMessage&&<div className="settings-success">{settingsMessage}</div>}
+      <label className="field-label">캘린더 이름<input required minLength={2} maxLength={40} autoComplete="username" value={settingsName} onChange={e=>setSettingsName(e.target.value)} placeholder="새 캘린더 이름"/></label>
+      <label className="field-label">새 비밀번호 <span className="optional">(선택, 8자 이상)</span><input type="password" autoComplete="new-password" minLength={8} value={settingsPassword} onChange={e=>setSettingsPassword(e.target.value)} placeholder="변경하지 않으려면 비워 두세요"/></label>
+      <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setSettingsOpen(false)}>닫기</button><button type="submit" className="save-button" disabled={authBusy}>{authBusy?"저장 중…":"변경사항 저장"}</button></div>
+    </form></div>}
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false);}}><form className="entry-modal" onSubmit={save}><div className="modal-heading"><div><div className="eyebrow">{editing?"EDIT YOUR PLAN":"MAKE A PLAN"}</div><h2>{editing?"계획 수정하기":"새 계획 추가하기"}</h2></div><button type="button" className="close-modal" onClick={()=>setModal(false)} aria-label="닫기">×</button></div>
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
       <div className="field-grid"><label className="field-label">날짜<input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className="field-label">시간 <span className="optional">(선택)</span><input value={form.time} onChange={e=>setForm({...form,time:e.target.value})} placeholder="예: 10:00"/></label></div>
