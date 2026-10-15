@@ -652,3 +652,20 @@ main{width:100%;max-width:1200px;min-width:0}
   .welcome-row{padding-right:8px}
   .welcome-art{flex-basis:80px;margin-right:0}
 }
+
+
+/* Align the hero illustration's right edge with the inset top-bar controls, not the viewport */
+.welcome-row{padding-right:38px}
+.welcome-art{margin-right:0;right:auto;flex:0 0 205px;transform:translateX(-12px)}
+@media(max-width:900px){
+  .welcome-row{padding-right:30px}
+  .welcome-art{flex-basis:150px;transform:translateX(-10px)}
+}
+@media(max-width:680px){
+  .welcome-row{padding-right:22px}
+  .welcome-art{flex-basis:110px;transform:translateX(-8px)}
+}
+@media(max-width:360px){
+  .welcome-row{padding-right:16px}
+  .welcome-art{flex-basis:80px;transform:translateX(-6px)}
+}
