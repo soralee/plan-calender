@@ -190,8 +190,8 @@ export default function App() {
       if (savedHomeError || !savedHome) throw new Error("저장된 담당자 이름을 불러오지 못했어요.");
       setSession(sessionData.session);
       setHousehold(savedHome as Household);
-      setMyDisplayName(savedHome.member_one_name || "나");
-      setPartnerDisplayName(savedHome.member_two_name || "배우자");
+      setMyDisplayName(savedHome.member_one_name || initialNamePair[0]);
+      setPartnerDisplayName(savedHome.member_two_name || initialNamePair[1]);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : '로그인 중 문제가 발생했어요.');
     } finally { setAuthBusy(false); }
@@ -242,9 +242,22 @@ export default function App() {
         .eq("id", home.household_id)
         .single();
       if (savedHomeError || !savedHome) throw new Error("담당자 이름 설정을 불러오지 못했어요.");
-      setHousehold(savedHome as Household);
-      setMyDisplayName(savedHome.member_one_name || "나");
-      setPartnerDisplayName(savedHome.member_two_name || "배우자");
+      let finalHome = savedHome as Household;
+      // Older Supabase schemas may still apply the legacy role-label defaults.
+      // Replace only those untouched defaults; preserve any names already chosen.
+      if (!finalHome.member_one_name || !finalHome.member_two_name ||
+          (finalHome.member_one_name === "나" && finalHome.member_two_name === "배우자")) {
+        const [memberOneName, memberTwoName] = randomNamePair();
+        const { error: namesError } = await supabase.rpc("update_household_member_names", {
+          p_member_one_name: memberOneName,
+          p_member_two_name: memberTwoName
+        });
+        if (namesError) throw new Error("캘린더는 생성됐지만 담당자 이름을 저장하지 못했어요. Supabase SQL 설정을 확인해 주세요. " + namesError.message);
+        finalHome = { ...finalHome, member_one_name: memberOneName, member_two_name: memberTwoName };
+      }
+      setHousehold(finalHome);
+      setMyDisplayName(finalHome.member_one_name || initialNamePair[0]);
+      setPartnerDisplayName(finalHome.member_two_name || initialNamePair[1]);
       setSession(sessionData.session);
       setAuthPassword("");
     } catch (error) {
@@ -283,8 +296,8 @@ export default function App() {
     setSettingsOpen(true);
   };
   const openMemberNames = () => {
-    setMyDisplayName(household?.member_one_name || "나");
-    setPartnerDisplayName(household?.member_two_name || "배우자");
+    setMyDisplayName(household?.member_one_name || initialNamePair[0]);
+    setPartnerDisplayName(household?.member_two_name || initialNamePair[1]);
     setMemberNamesError("");
     setMemberNamesMessage("");
     setMemberNamesOpen(true);
