@@ -87,6 +87,8 @@ export default function App() {
   const [scheduleSort, setScheduleSort] = useState<"dateAsc" | "dateDesc" | "assignee">("dateAsc");
   const [taskSort, setTaskSort] = useState<"dueAsc" | "dueDesc" | "assignee" | "title">("dueAsc");
   const [modal, setModal] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [editing, setEditing] = useState<Entry | null>(null);
   const [form, setForm] = useState({ title: "", date: dateKey(today), time: "", kind: "일정" as Kind, assignee: "함께" as Assignee, category: "이사", note: "" });
   useEffect(() => {
@@ -156,11 +158,15 @@ export default function App() {
     return () => { cancelled = true; void supabase!.removeChannel(channel); };
   }, [session, household]);
 
-  const cloudSave = async (entry: Entry) => {
-    if (!supabase || !session || !household) return;
+  const cloudSave = async (entry: Entry): Promise<boolean> => {
+    if (!supabase || !session || !household) return true;
     const { error } = await supabase.from("entries").upsert(cloudRow(entry, household.id, session.user.id), { onConflict: "household_id,id" });
-    if (error) { setCloudError("저장에 실패했어요: " + error.message); }
-    else setCloudError("");
+    if (error) {
+      setCloudError("저장에 실패했어요: " + error.message);
+      return false;
+    }
+    setCloudError("");
+    return true;
   };
   const handleAuth = async (ev: FormEvent) => {
     ev.preventDefault();
@@ -371,19 +377,32 @@ export default function App() {
   const openEdit = (e: Entry) => { setEditing(e); setForm({ title: e.title, date: e.date, time: e.time || "", kind: e.kind, assignee: e.assignee, category: e.category, note: e.note || "" }); setModal(true); };
   const save = async (ev: FormEvent) => {
     ev.preventDefault();
-    if (!form.title.trim()) return;
+    if (saveBusy || !form.title.trim()) return;
+    setSaveBusy(true);
+    setSaveError("");
     const next: Entry = {
       ...form,
       title: form.title.trim(),
       id: editing?.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())),
       done: editing?.done || false
     };
-    setEntries(prev => editing ? prev.map(e => e.id === editing.id ? next : e) : [...prev, next]);
-    await cloudSave(next);
-    setSelectedDate(form.date);
-    const d = new Date(form.date + "T12:00:00");
-    setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
-    setModal(false);
+    try {
+      const saved = await cloudSave(next);
+      if (!saved) {
+        setSaveError("저장하지 못했어요. 입력한 내용은 유지했으니 연결 상태를 확인하고 다시 시도해 주세요.");
+        return;
+      }
+      setEntries(prev => editing ? prev.map(e => e.id === editing.id ? next : e) : [...prev, next]);
+      setSelectedDate(form.date);
+      const d = new Date(form.date + "T12:00:00");
+      setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+      setModal(false);
+    } catch (error) {
+      setSaveError("저장 중 문제가 발생했어요. 입력한 내용은 유지했으니 다시 시도해 주세요.");
+      setCloudError(error instanceof Error ? "저장에 실패했어요: " + error.message : "저장에 실패했어요.");
+    } finally {
+      setSaveBusy(false);
+    }
   };
   const remove = async (id: string) => {
     if (!window.confirm("이 항목을 삭제할까요?")) return;
@@ -560,13 +579,15 @@ export default function App() {
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setSettingsOpen(false)}>닫기</button><button type="submit" className="save-button" disabled={authBusy}>{authBusy?"저장 중…":"변경사항 저장"}</button></div>
       <div className="settings-danger"><h3>캘린더 삭제</h3><p>캘린더와 그 안의 모든 일정이 영구 삭제돼요. 삭제하려면 현재 비밀번호를 입력하세요.</p><label className="field-label">현재 비밀번호<input type="password" autoComplete="current-password" value={deletePassword} onChange={e=>setDeletePassword(e.target.value)} placeholder="삭제 확인용 비밀번호"/></label><button type="button" className="delete-calendar-button" disabled={authBusy} onClick={() => void deleteHousehold()}>{authBusy ? "처리 중…" : "캘린더 영구 삭제"}</button></div>
     </form></div>}
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(false);}}><form className="entry-modal" onSubmit={save}><div className="modal-heading"><div><div className="eyebrow">{editing?"EDIT YOUR PLAN":"MAKE A PLAN"}</div><h2>{editing?"계획 수정하기":"새 계획 추가하기"}</h2></div><button type="button" className="close-modal" onClick={()=>setModal(false)} aria-label="닫기">×</button></div>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!saveBusy)setModal(false);}}><form className="entry-modal" onSubmit={save}><div className="modal-heading"><div><div className="eyebrow">{editing?"EDIT YOUR PLAN":"MAKE A PLAN"}</div><h2>{editing?"계획 수정하기":"새 계획 추가하기"}</h2></div><button type="button" className="close-modal" onClick={()=>{if(!saveBusy)setModal(false);}} aria-label="닫기" disabled={saveBusy}>×</button></div>
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
       <div className="field-grid"><label className="field-label">날짜<input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className="field-label">시간 <span className="optional">(선택)</span><input value={form.time} onChange={e=>setForm({...form,time:e.target.value})} placeholder="예: 10:00"/></label></div>
       <div className="field-label">항목 유형<div className="choice-row">{(["일정","할 일"] as Kind[]).map(k=><button type="button" key={k} className={form.kind===k?"chosen":""} onClick={()=>setForm({...form,kind:k})}>{k==="일정"?"▦":"✓"} {k}</button>)}</div></div>
       <label className="field-label">담당자<select value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value as Assignee})}><option value="함께">함께</option><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option></select></label>
       <label className="field-label">메모 <span className="optional">(선택)</span><textarea rows={3} maxLength={1000} value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="함께 기억할 내용을 적어두세요."/><span className="character-count">{form.note.length.toLocaleString("ko-KR")}/1,000자</span></label>
-      <div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setModal(false)}>취소</button><button type="submit" className="save-button">{editing?"변경사항 저장":"계획 저장하기"}</button></div>
+      {saveError&&<div className="save-feedback save-feedback-error" role="alert"><strong>저장 실패</strong><span>{saveError}</span></div>}
+      {saveBusy&&<div className="save-feedback save-feedback-pending" role="status"><span className="save-spinner" aria-hidden="true"></span><span><strong>저장 중입니다...</strong><small>완료될 때까지 팝업을 닫지 말아 주세요.</small></span></div>}
+      <div className="modal-actions"><button type="button" className="cancel-button" disabled={saveBusy} onClick={()=>setModal(false)}>취소</button><button type="submit" className="save-button" disabled={saveBusy}>{saveBusy?<><span className="save-spinner save-spinner-button" aria-hidden="true"></span>저장 중...</>:editing?"변경사항 저장":"계획 저장하기"}</button></div>
     </form></div>}
   </div>;
 }
