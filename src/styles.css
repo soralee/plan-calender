@@ -762,3 +762,5 @@ main{width:100%;max-width:1200px;min-width:0}
 @media(max-width:360px){
   .welcome-art{transform:translate(12px,3px)!important}
 }
+
+.character-count{display:block;margin-top:6px;text-align:right;font-size:14px;line-height:1.4;color:#96949f;font-weight:500}
