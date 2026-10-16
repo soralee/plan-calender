@@ -12,6 +12,7 @@ set search_path = public, extensions
 as $$
 declare
   new_id uuid;
+  name_pair_index integer := floor(random() * 8 + 1);
   clean_name text := trim(coalesce(p_name, ''));
   clean_login text := lower(trim(coalesce(p_login_name, '')));
 begin
@@ -34,8 +35,17 @@ begin
     raise exception '이미 사용 중인 캘린더 이름입니다. 다른 이름을 입력해 주세요.';
   end if;
 
-  insert into public.households (name, login_name, created_by, password_hash)
-  values (clean_name, clean_login, auth.uid(), crypt(p_password, gen_salt('bf')))
+  insert into public.households (
+    name, login_name, created_by, password_hash, member_one_name, member_two_name
+  )
+  values (
+    clean_name,
+    clean_login,
+    auth.uid(),
+    crypt(p_password, gen_salt('bf')),
+    (array['라임','구름','보리','하루','토리','단추','초코','유자'])[name_pair_index],
+    (array['모카','별이','두부','나루','루미','콩이','바닐라','호두'])[name_pair_index]
+  )
   returning id into new_id;
 
   insert into public.household_members (household_id, user_id, role)
