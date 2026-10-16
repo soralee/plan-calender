@@ -821,3 +821,64 @@ main{width:100%;max-width:1200px;min-width:0}
   .list-filter-row button{padding:7px 10px}
   .list-entry-card{padding:11px!important}
 }
+
+
+/* Entry editor save feedback */
+.save-feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.save-feedback-pending {
+  color: var(--text, #334155);
+  background: var(--surface-soft, #f1f5f9);
+}
+.save-feedback-error {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  color: #b42318;
+  background: #fff1f0;
+}
+.save-feedback-pending > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.save-feedback small {
+  font-size: 12px;
+  opacity: .8;
+}
+.save-spinner {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: entry-save-spin .75s linear infinite;
+}
+.save-spinner-button {
+  width: 14px;
+  height: 14px;
+  flex-basis: 14px;
+  border-width: 2px;
+}
+.save-button:disabled,
+.cancel-button:disabled,
+.close-modal:disabled {
+  cursor: not-allowed;
+  opacity: .7;
+}
+@keyframes entry-save-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner { animation-duration: 1.8s; }
+}
