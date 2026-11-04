@@ -120,3 +120,25 @@ drop trigger if exists calendar_category_sync_entry_names on public.calendar_cat
 create trigger calendar_category_sync_entry_names
 after update of name on public.calendar_categories
 for each row execute function public.sync_category_name_to_entries();
+
+
+-- Automatically seed starter categories for calendars created after this migration.
+create or replace function public.seed_household_categories()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  insert into public.calendar_categories (household_id, name, color, sort_order)
+  values
+    (new.id, '일상', '#d79ca8', 0),
+    (new.id, '집', '#91ad91', 1),
+    (new.id, '금융', '#9d97c7', 2),
+    (new.id, '이사', '#c99c7c', 3),
+    (new.id, '개인', '#819cc3', 4),
+    (new.id, '기타', '#b6b9ad', 5)
+  on conflict (household_id, name) do nothing;
+  return new;
+end; $$;
+
+drop trigger if exists households_seed_categories on public.households;
+create trigger households_seed_categories
+after insert on public.households
+for each row execute function public.seed_household_categories();
