@@ -924,3 +924,30 @@ main{width:100%;max-width:1200px;min-width:0}
  .day-task-progress{font-size:7px;padding:2px 4px}
  .day-cell:has(.day-task-progress){gap:3px}
 }
+
+
+/* Keep the progress track out of the summary-card content flex layout */
+.task-progress-stat>div:last-child.task-progress-track{
+  display:block;
+  width:100%;
+  min-width:0;
+  height:8px;
+  margin:0;
+  padding:0;
+  align-self:stretch;
+  flex:0 0 8px;
+  background:#edf0eb;
+  border-radius:999px;
+  overflow:hidden;
+}
+.task-progress-stat .task-progress-track>span{
+  display:block;
+  height:100%;
+  max-width:100%;
+  margin:0;
+  padding:0;
+  border-radius:999px;
+  background:#559875;
+  line-height:0;
+  transition:width .2s ease;
+}
