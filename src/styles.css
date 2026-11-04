@@ -967,3 +967,7 @@ main{width:100%;max-width:1200px;min-width:0}
   .calendar-legend .legend-task-note{font-size:8px}
   .calendar-legend .legend-note{display:none}
 }
+
+
+/* Summary now contains two cards */
+.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}
