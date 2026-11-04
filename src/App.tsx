@@ -514,7 +514,7 @@ export default function App() {
       <section className="stats-row">
         <div className="stat-card"><div><span>이번 달 일정</span><strong>{monthEntries.filter(e => e.kind === "일정").length}<small>개</small></strong></div></div>
         <div className="stat-card task-progress-stat"><div className="task-progress-copy"><span>이번 달 할 일 진행</span><strong>{doneCount}<small> / {taskCount}개</small></strong><small className="task-progress-remaining">{remainingCount ? `미완료 ${remainingCount}개 남음` : taskCount ? "모든 할 일 완료" : "등록된 할 일 없음"} ({progressPercent}%)</small></div><div className="task-progress-track" role="progressbar" aria-label="이번 달 할 일 완료율" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}><span style={{width: `${progressPercent}%`}} /></div></div>
-        <div className="stat-card"><div><span>함께하는 계획</span><strong>{monthEntries.filter(e => e.assignee === "함께").length}<small>개</small></strong></div></div>
+        
       </section>
       <div className="view-switch" role="tablist" aria-label="보기 방식">
         <button role="tab" aria-selected={viewMode === "calendar"} className={viewMode === "calendar" ? "active" : ""} onClick={() => setViewMode("calendar")}>달력 보기</button>
