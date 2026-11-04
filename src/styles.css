@@ -951,3 +951,19 @@ main{width:100%;max-width:1200px;min-width:0}
   line-height:0;
   transition:width .2s ease;
 }
+
+
+/* Explain the compact completion ratio shown on calendar days */
+.calendar-legend .legend-task-note{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  color:#397b55;
+  font-weight:600;
+  white-space:nowrap;
+}
+.calendar-legend .legend-task-note::first-letter{color:#397b55}
+@media(max-width:680px){
+  .calendar-legend .legend-task-note{font-size:8px}
+  .calendar-legend .legend-note{display:none}
+}
