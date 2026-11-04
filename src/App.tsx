@@ -4,7 +4,8 @@ import { supabase, isCloudConfigured } from "./lib/supabase";
 
 type Assignee = "나" | "배우자" | "함께";
 type Kind = "일정" | "할 일";
-type Entry = { id: string; title: string; date: string; time?: string; kind: Kind; assignee: Assignee; category: string; done: boolean; note?: string };
+type Category = { id: string; household_id: string; name: string; color: string; sort_order: number; is_archived: boolean };
+type Entry = { id: string; title: string; date: string; time?: string; kind: Kind; assignee: Assignee; category: string; categoryId?: string; done: boolean; note?: string };
 const STORAGE_KEY = "our-calendar-entries-v1";
 const today = new Date();
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -34,6 +35,7 @@ const cloudRow = (entry: Entry, householdId: string, userId: string) => ({
   kind: entry.kind,
   assignee: entry.assignee,
   category: entry.category,
+  category_id: entry.categoryId || null,
   done: entry.done,
   note: entry.note || null,
   created_by: userId
@@ -44,6 +46,13 @@ const randomNamePair = () => defaultNamePairs[Math.floor(Math.random() * default
 
 export default function App() {
   const [entries, setEntries] = useState<Entry[]>(readLocalEntries);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryColor, setCategoryColor] = useState("#91ad91");
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryError, setCategoryError] = useState("");
+  const [categoryBusy, setCategoryBusy] = useState(false);
   const localEntriesRef = useRef<Entry[]>(entries);
   const [session, setSession] = useState<Session | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
@@ -65,7 +74,7 @@ export default function App() {
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportDate, setBulkImportDate] = useState(dateKey(today));
   const [bulkImportAssignee, setBulkImportAssignee] = useState<Assignee>("나");
-  const [bulkImportCategory] = useState("개인");
+  const [bulkImportCategory, setBulkImportCategory] = useState("");
   const [bulkImportError, setBulkImportError] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);
   const [settingsName, setSettingsName] = useState("");
@@ -82,7 +91,9 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [scheduleAssigneeFilter, setScheduleAssigneeFilter] = useState<"전체" | Assignee>("전체");
+  const [scheduleCategoryFilter, setScheduleCategoryFilter] = useState("전체");
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState<"전체" | Assignee>("전체");
+  const [taskCategoryFilter, setTaskCategoryFilter] = useState("전체");
   const [taskStatusFilter, setTaskStatusFilter] = useState<"미완료" | "전체" | "완료">("미완료");
   const [scheduleSort, setScheduleSort] = useState<"dateAsc" | "dateDesc" | "assignee">("dateAsc");
   const [taskSort, setTaskSort] = useState<"dueAsc" | "dueDesc" | "assignee" | "title">("dueAsc");
@@ -90,7 +101,7 @@ export default function App() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [editing, setEditing] = useState<Entry | null>(null);
-  const [form, setForm] = useState({ title: "", date: dateKey(today), time: "", kind: "일정" as Kind, assignee: "함께" as Assignee, category: "이사", note: "" });
+  const [form, setForm] = useState<{ title: string; date: string; time: string; kind: Kind; assignee: Assignee; category: string; categoryId?: string; note: string }>({ title: "", date: dateKey(today), time: "", kind: "일정", assignee: "함께", category: "기타", note: "" });
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { /* private browsing or storage disabled */ }
   }, [entries]);
@@ -132,14 +143,20 @@ export default function App() {
     if (!supabase || !session || !household) return;
     let cancelled = false;
     const load = async () => {
-      const { data, error } = await supabase!.from("entries").select("*")
-        .eq("household_id", household.id).order("date").order("time");
+      const [{ data: categoryRows, error: categoryError }, { data, error }] = await Promise.all([
+        supabase!.from("calendar_categories").select("*").eq("household_id", household.id).order("sort_order").order("name"),
+        supabase!.from("entries").select("*").eq("household_id", household.id).order("date").order("time")
+      ]);
       if (cancelled) return;
+      if (categoryError) { setCloudError("카테고리 설정을 불러오지 못했어요. Supabase 카테고리 마이그레이션을 실행해 주세요."); return; }
       if (error) { setCloudError("일정을 불러오지 못했어요. 네트워크와 Supabase 설정을 확인해 주세요."); return; }
+      const loadedCategories = (categoryRows || []) as Category[];
+      setCategories(loadedCategories);
+      const categoryById = new Map(loadedCategories.map(category => [category.id, category]));
       const cloudEntries: Entry[] = (data || []).map((row: any) => ({
         id: String(row.id), title: row.title, date: row.date, time: row.time || "",
-        kind: row.kind, assignee: row.assignee, category: row.category || "기타",
-        done: Boolean(row.done), note: row.note || ""
+        kind: row.kind, assignee: row.assignee, category: categoryById.get(row.category_id)?.name || row.category || "기타",
+        categoryId: row.category_id || undefined, done: Boolean(row.done), note: row.note || ""
       }));
       if (cloudEntries.length === 0 && localEntriesRef.current.length > 0 &&
           window.confirm("클라우드 캘린더가 비어 있어요. 이 기기에 저장된 기존 일정 " + localEntriesRef.current.length + "개를 클라우드로 가져올까요?")) {
@@ -154,6 +171,7 @@ export default function App() {
     void load();
     const channel = supabase.channel("calendar-entries-" + household.id)
       .on("postgres_changes", { event: "*", schema: "public", table: "entries", filter: "household_id=eq." + household.id }, () => { void load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_categories", filter: "household_id=eq." + household.id }, () => { void load(); })
       .subscribe();
     return () => { cancelled = true; void supabase!.removeChannel(channel); };
   }, [session, household]);
@@ -359,6 +377,9 @@ export default function App() {
       setSettingsError(error instanceof Error ? error.message : "설정을 변경하지 못했어요.");
     } finally { setAuthBusy(false); }
   };
+  const activeCategories = categories.filter(category => !category.is_archived);
+  const categoryFor = (entry: Entry) => categories.find(category => category.id === entry.categoryId) || categories.find(category => category.name === entry.category);
+  const categoryStyle = (entry: Entry) => ({ "--category-color": categoryFor(entry)?.color || "#b6b9ad" } as React.CSSProperties);
   const monthLabel = month.getFullYear() + "년 " + (month.getMonth() + 1) + "월";
   const calendarDays = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -368,8 +389,8 @@ export default function App() {
   const visible = (e: Entry) => (filter === "전체" || e.assignee === filter) && (!query || e.title.toLowerCase().includes(query.toLowerCase()));
   const dayEntries = entries.filter(e => e.date === selectedDate && visible(e)).sort((a,b) => (a.time || "").localeCompare(b.time || ""));
   const assigneeOrder = (e: Entry) => e.assignee === "나" ? 0 : e.assignee === "배우자" ? 1 : 2;
-  const scheduleEntries = entries.filter(e => e.kind === "일정" && (scheduleAssigneeFilter === "전체" || e.assignee === scheduleAssigneeFilter) && (!query || e.title.toLowerCase().includes(query.toLowerCase()))).sort((a,b) => scheduleSort === "dateDesc" ? b.date.localeCompare(a.date) || (b.time || "").localeCompare(a.time || "") : scheduleSort === "assignee" ? assigneeOrder(a)-assigneeOrder(b) || a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""));
-  const taskEntries = entries.filter(e => e.kind === "할 일" && (taskAssigneeFilter === "전체" || e.assignee === taskAssigneeFilter) && (taskStatusFilter === "전체" || (taskStatusFilter === "완료" ? e.done : !e.done)) && (!query || e.title.toLowerCase().includes(query.toLowerCase()))).sort((a,b) => taskSort === "dueDesc" ? b.date.localeCompare(a.date) : taskSort === "assignee" ? assigneeOrder(a)-assigneeOrder(b) || a.date.localeCompare(b.date) : taskSort === "title" ? a.title.localeCompare(b.title, "ko") : Number(a.done)-Number(b.done) || a.date.localeCompare(b.date));
+  const scheduleEntries = entries.filter(e => e.kind === "일정" && (scheduleAssigneeFilter === "전체" || e.assignee === scheduleAssigneeFilter) && (scheduleCategoryFilter === "전체" || categoryFor(e)?.id === scheduleCategoryFilter) && (!query || e.title.toLowerCase().includes(query.toLowerCase()))).sort((a,b) => scheduleSort === "dateDesc" ? b.date.localeCompare(a.date) || (b.time || "").localeCompare(a.time || "") : scheduleSort === "assignee" ? assigneeOrder(a)-assigneeOrder(b) || a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""));
+  const taskEntries = entries.filter(e => e.kind === "할 일" && (taskAssigneeFilter === "전체" || e.assignee === taskAssigneeFilter) && (taskCategoryFilter === "전체" || categoryFor(e)?.id === taskCategoryFilter) && (taskStatusFilter === "전체" || (taskStatusFilter === "완료" ? e.done : !e.done)) && (!query || e.title.toLowerCase().includes(query.toLowerCase()))).sort((a,b) => taskSort === "dueDesc" ? b.date.localeCompare(a.date) : taskSort === "assignee" ? assigneeOrder(a)-assigneeOrder(b) || a.date.localeCompare(b.date) : taskSort === "title" ? a.title.localeCompare(b.title, "ko") : Number(a.done)-Number(b.done) || a.date.localeCompare(b.date));
   const monthEntries = entries.filter(e => e.date.startsWith(month.getFullYear() + "-" + pad(month.getMonth()+1)));
   const taskCount = monthEntries.filter(e => e.kind === "할 일").length;
   const doneCount = monthEntries.filter(e => e.kind === "할 일" && e.done).length;
@@ -380,8 +401,8 @@ export default function App() {
   const allDoneCount = allTasks.filter(e => e.done).length;
   const allRemainingCount = allTaskCount - allDoneCount;
   const overdueTaskCount = allTasks.filter(e => !e.done && e.date < dateKey(today)).length;
-  const openNew = (date = selectedDate) => { setEditing(null); setForm({ title: "", date, time: "", kind: "일정", assignee: "함께", category: "이사", note: "" }); setModal(true); };
-  const openEdit = (e: Entry) => { setEditing(e); setForm({ title: e.title, date: e.date, time: e.time || "", kind: e.kind, assignee: e.assignee, category: e.category, note: e.note || "" }); setModal(true); };
+  const openNew = (date = selectedDate) => { const category = activeCategories[0]; setEditing(null); setForm({ title: "", date, time: "", kind: "일정", assignee: "함께", category: category?.name || "기타", categoryId: category?.id, note: "" }); setModal(true); };
+  const openEdit = (e: Entry) => { setEditing(e); setForm({ title: e.title, date: e.date, time: e.time || "", kind: e.kind, assignee: e.assignee, category: e.category, categoryId: e.categoryId, note: e.note || "" }); setModal(true); };
   const save = async (ev: FormEvent) => {
     ev.preventDefault();
     if (saveBusy || !form.title.trim()) return;
@@ -391,7 +412,9 @@ export default function App() {
       ...form,
       title: form.title.trim(),
       id: editing?.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())),
-      done: editing?.done || false
+      done: editing?.done || false,
+      category: categories.find(category => category.id === form.categoryId)?.name || form.category,
+      categoryId: form.categoryId
     };
     try {
       const saved = await cloudSave(next);
@@ -439,7 +462,8 @@ export default function App() {
       const title = (threePart?.[3] || dateAndTime?.[3] || dated?.[2] || line).trim().replace(/^[-•*✓☐☑]\s*/, "");
       const date = rawDate ? (() => { const parts = rawDate.split("-").map(Number); return parts[0] + "-" + pad(parts[1]) + "-" + pad(parts[2]); })() : bulkImportDate;
       const validTime = /^([01]?\d|2[0-3]):[0-5]\d$/.test(rawTime) ? rawTime.padStart(5, "0") : undefined;
-      return { id: crypto.randomUUID ? crypto.randomUUID() : "reminder-" + Date.now() + "-" + index, title, date, ...(validTime ? { time: validTime } : {}), kind: "할 일" as Kind, assignee: bulkImportAssignee, category: bulkImportCategory, done: false };
+      const category = activeCategories.find(item => item.id === bulkImportCategory) || activeCategories[0];
+      return { id: crypto.randomUUID ? crypto.randomUUID() : "reminder-" + Date.now() + "-" + index, title, date, ...(validTime ? { time: validTime } : {}), kind: "할 일" as Kind, assignee: bulkImportAssignee, category: category?.name || "기타", categoryId: category?.id, done: false };
     }).filter(entry => entry.title.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(entry.date));
     if (!additions.length) { setBulkImportError("가져올 할 일과 날짜를 확인해 주세요."); return; }
     setBulkImportBusy(true); setBulkImportError(""); setCloudError("");
@@ -457,6 +481,31 @@ export default function App() {
       setBulkImportError("할 일을 추가하지 못했어요. " + (error instanceof Error ? error.message : ""));
     } finally { setBulkImportBusy(false); }
   };
+  const saveCategory = async (ev: FormEvent) => {
+    ev.preventDefault(); if (!supabase || !household) return;
+    const name = categoryName.trim(); if (!name || name.length > 20) { setCategoryError("카테고리 이름은 1~20자로 입력해 주세요."); return; }
+    setCategoryBusy(true); setCategoryError("");
+    try {
+      const payload = { name, color: categoryColor, updated_at: new Date().toISOString() };
+      const result = editingCategory ? await supabase.from("calendar_categories").update(payload).eq("household_id", household.id).eq("id", editingCategory.id) : await supabase.from("calendar_categories").insert({ ...payload, household_id: household.id, sort_order: categories.length });
+      if (result.error) throw result.error;
+      resetCategoryEditor();
+      const { data, error } = await supabase.from("calendar_categories").select("*").eq("household_id", household.id).order("sort_order").order("name");
+      if (error) throw error; setCategories((data || []) as Category[]);
+    } catch (error) { setCategoryError(error instanceof Error && error.message.includes("unique") ? "같은 이름의 카테고리가 이미 있어요." : error instanceof Error ? error.message : "카테고리를 저장하지 못했어요."); }
+    finally { setCategoryBusy(false); }
+  };
+  const toggleCategoryArchive = async (category: Category) => {
+    if (!supabase || !household) return;
+    const action = category.is_archived ? "복원" : "보관";
+    if (!window.confirm(`‘${category.name}’ 카테고리를 ${action}할까요? ${category.is_archived ? "새 항목에서 다시 선택할 수 있어요." : "기존 항목의 이름과 색상은 그대로 유지됩니다."}`)) return;
+    setCategoryBusy(true); setCategoryError("");
+    const { error } = await supabase.from("calendar_categories").update({ is_archived: !category.is_archived, updated_at: new Date().toISOString() }).eq("household_id", household.id).eq("id", category.id);
+    if (error) setCategoryError(error.message); else setCategories(current => current.map(item => item.id === category.id ? { ...item, is_archived: !item.is_archived } : item));
+    setCategoryBusy(false);
+  };
+  const resetCategoryEditor = () => { setEditingCategory(null); setCategoryName(""); setCategoryColor("#91ad91"); setCategoryError(""); };
+  const startEditCategory = (category: Category) => { setEditingCategory(category); setCategoryName(category.name); setCategoryColor(category.color); setCategoryError(""); };
   const importJson = (file?: File) => { if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const data = JSON.parse(String(reader.result)); if (!Array.isArray(data) || !data.every((e: Entry) => e.id && e.title && e.date)) throw new Error(); if (window.confirm("현재 항목을 가져온 백업으로 교체할까요?")) {
           void (async () => {
             if (supabase && household) {
@@ -498,6 +547,7 @@ export default function App() {
           <button className="menu-button" aria-label="더보기 메뉴" aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)}><span></span><span></span><span></span></button>
           {menuOpen && <><button className="menu-dismiss" aria-label="메뉴 닫기" onClick={() => setMenuOpen(false)}></button><div className="overflow-menu" role="menu">
             <button role="menuitem" onClick={() => { setMenuOpen(false); openMemberNames(); }}>담당자 이름 설정</button>
+            <button role="menuitem" onClick={() => { setMenuOpen(false); resetCategoryEditor(); setCategoryManagerOpen(true); }}>카테고리 관리</button>
             <button role="menuitem" onClick={() => { setMenuOpen(false); openSettings(); }}>계정 설정</button>
             <button role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>백업 다운로드</button>
             <button role="menuitem" onClick={() => { setMenuOpen(false); importRef.current?.click(); }}>백업 가져오기</button>
@@ -532,7 +582,7 @@ export default function App() {
                   <div className="day-panel-top"><div><div className="eyebrow">YOUR DAY</div><h2>{new Date(selectedDate+"T12:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"})}</h2></div><button className="round-add" onClick={()=>openNew()} aria-label="선택한 날짜에 추가">＋</button></div>
                   <div className="filter-row">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={filter===f?"active":""} onClick={()=>setFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
                   <label className="search-box"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="일정이나 할 일 검색"/></label>
-                  <div className="entry-list">{dayEntries.length===0?<div className="empty-state"><div className="empty-illustration">☁</div><strong>아직 계획이 없어요</strong><p>작은 계획을 추가해 볼까요?</p><button onClick={()=>openNew()}>＋ 계획 추가하기</button></div>:dayEntries.map(entry=><article className={"entry-card "+(entry.done?"completed":"")} key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className={"kind-pill "+(entry.kind==="할 일"?"task":"event")}>{entry.kind}</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span>{entry.time&&<span className="time-label">{entry.time}</span>}</div><div className="entry-actions">{entry.kind==="할 일"&&<button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button>}<button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="entry-title-row"><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button>{entry.kind==="할 일"&&<span className={`task-status-label ${entry.done?"is-done":"is-open"}`}>{entry.done?"✓ 완료":"미완료"}</span>}</div><div className="entry-footer"></div>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
+                  <div className="entry-list">{dayEntries.length===0?<div className="empty-state"><div className="empty-illustration">☁</div><strong>아직 계획이 없어요</strong><p>작은 계획을 추가해 볼까요?</p><button onClick={()=>openNew()}>＋ 계획 추가하기</button></div>:dayEntries.map(entry=><article className={"entry-card "+(entry.done?"completed":"")} key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className={"kind-pill "+(entry.kind==="할 일"?"task":"event")}>{entry.kind}</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span>{entry.time&&<span className="time-label">{entry.time}</span>}<span className="category-label category-chip" style={categoryStyle(entry)}>{categoryFor(entry)?.name || entry.category}</span></div><div className="entry-actions">{entry.kind==="할 일"&&<button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button>}<button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="entry-title-row"><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button>{entry.kind==="할 일"&&<span className={`task-status-label ${entry.done?"is-done":"is-open"}`}>{entry.done?"✓ 완료":"미완료"}</span>}</div><div className="entry-footer"></div>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
                   <button className="wide-add" onClick={()=>openNew()}>＋ <span>이 날짜에 계획 추가</span></button>
                 </aside>
               </section>
@@ -546,14 +596,14 @@ export default function App() {
           <div className="list-sections">
             <section className="list-section schedule-section">
               <div className="list-section-heading"><div><span className="list-section-kicker">SCHEDULE</span><h3>일정 <small>{scheduleEntries.length}개</small></h3></div><label className="list-select-label">정렬<select value={scheduleSort} onChange={e=>setScheduleSort(e.target.value as typeof scheduleSort)}><option value="dateAsc">날짜와 시간순</option><option value="dateDesc">최신 날짜순</option><option value="assignee">담당자순</option></select></label></div>
-              <div className="list-filter-row" aria-label="일정 담당자 필터">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={scheduleAssigneeFilter===f?"active":""} onClick={()=>setScheduleAssigneeFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
-              <div className="entry-list list-entry-list">{scheduleEntries.length===0 ? <div className="list-empty"><strong>조건에 맞는 일정이 없어요</strong><p>담당자 필터를 바꾸거나 새 일정을 추가해 보세요.</p><button onClick={()=>{setForm({title:"",date:selectedDate,time:"",kind:"일정",assignee:"함께",category:"이사",note:""});setEditing(null);setModal(true);}}>＋ 일정 추가</button></div> : scheduleEntries.map(entry=><article className="entry-card list-entry-card" key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className="kind-pill event">일정</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span>{entry.time&&<span className="time-label">{entry.time}</span>}</div><div className="entry-actions"><button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="list-entry-date">{new Date(entry.date+"T12:00:00").toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric",weekday:"short"})}</div><div className="entry-title-row"><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button><span className={`task-status-label ${entry.done?"is-done":"is-open"}`}>{entry.done?"✓ 완료":"미완료"}</span></div>{entry.date<dateKey(today)&&!entry.done&&<span className="task-overdue-label">기한이 지났어요</span>}{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
+              <label className="list-select-label category-filter-label">카테고리<select value={scheduleCategoryFilter} onChange={e=>setScheduleCategoryFilter(e.target.value)}><option value="전체">전체 카테고리</option>{activeCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label><div className="list-filter-row" aria-label="일정 담당자 필터">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={scheduleAssigneeFilter===f?"active":""} onClick={()=>setScheduleAssigneeFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
+              <div className="entry-list list-entry-list">{scheduleEntries.length===0 ? <div className="list-empty"><strong>조건에 맞는 일정이 없어요</strong><p>담당자 필터를 바꾸거나 새 일정을 추가해 보세요.</p><button onClick={()=>{setForm({title:"",date:selectedDate,time:"",kind:"일정",assignee:"함께",category:"이사",note:""});setEditing(null);setModal(true);}}>＋ 일정 추가</button></div> : scheduleEntries.map(entry=><article className="entry-card list-entry-card" key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className="kind-pill event">일정</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span><span className="category-label category-chip" style={categoryStyle(entry)}>{categoryFor(entry)?.name || entry.category}</span>{entry.time&&<span className="time-label">{entry.time}</span>}</div><div className="entry-actions"><button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="list-entry-date">{new Date(entry.date+"T12:00:00").toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric",weekday:"short"})}</div><div className="entry-title-row"><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button><span className={`task-status-label ${entry.done?"is-done":"is-open"}`}>{entry.done?"✓ 완료":"미완료"}</span></div>{entry.date<dateKey(today)&&!entry.done&&<span className="task-overdue-label">기한이 지났어요</span>}{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
             </section>
             <section className="list-section task-section">
               <div className="list-section-heading"><div><span className="list-section-kicker">TO-DO</span><h3>할 일 <small>{taskEntries.length}개 표시</small></h3><p className="task-summary-counts"><span>전체 {allTaskCount}</span><span className="summary-open">미완료 {allRemainingCount}</span><span className="summary-done">완료 {allDoneCount}</span>{overdueTaskCount>0&&<span className="summary-overdue">기한 지남 {overdueTaskCount}</span>}</p></div><label className="list-select-label">정렬<select value={taskSort} onChange={e=>setTaskSort(e.target.value as typeof taskSort)}><option value="dueAsc">미완료·기한순</option><option value="dueDesc">기한 역순</option><option value="assignee">담당자순</option><option value="title">제목순</option></select></label></div>
               <div className="list-filter-row" aria-label="할 일 상태 필터">{(["미완료","전체","완료"] as const).map(f=><button key={f} className={taskStatusFilter===f?"active":""} onClick={()=>setTaskStatusFilter(f)}>{f}{f==="미완료"?` ${allRemainingCount}`:f==="완료"?` ${allDoneCount}`:` ${allTaskCount}`}</button>)}</div>
-              <div className="list-filter-row assignee-filter-row" aria-label="할 일 담당자 필터">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={taskAssigneeFilter===f?"active":""} onClick={()=>setTaskAssigneeFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
-              <div className="entry-list list-entry-list">{taskEntries.length===0 ? <div className="list-empty"><strong>조건에 맞는 할 일이 없어요</strong><p>필터를 바꾸거나 새 할 일을 추가해 보세요.</p><button onClick={()=>{setForm({title:"",date:selectedDate,time:"",kind:"할 일",assignee:"함께",category:"이사",note:""});setEditing(null);setModal(true);}}>＋ 할 일 추가</button></div> : taskEntries.map(entry=><article className={"entry-card list-entry-card "+(entry.done?"completed":"")} key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className="kind-pill task">할 일</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span></div><div className="entry-actions"><button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button><button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="list-entry-date">{new Date(entry.date+"T12:00:00").toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric",weekday:"short"})}</div><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
+              <label className="list-select-label category-filter-label">카테고리<select value={taskCategoryFilter} onChange={e=>setTaskCategoryFilter(e.target.value)}><option value="전체">전체 카테고리</option>{activeCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label><div className="list-filter-row assignee-filter-row" aria-label="할 일 담당자 필터">{(["전체","나","배우자","함께"] as const).map(f=><button key={f} className={taskAssigneeFilter===f?"active":""} onClick={()=>setTaskAssigneeFilter(f)}>{f==="나"?myDisplayName:f==="배우자"?partnerDisplayName:f}</button>)}</div>
+              <div className="entry-list list-entry-list">{taskEntries.length===0 ? <div className="list-empty"><strong>조건에 맞는 할 일이 없어요</strong><p>필터를 바꾸거나 새 할 일을 추가해 보세요.</p><button onClick={()=>{setForm({title:"",date:selectedDate,time:"",kind:"할 일",assignee:"함께",category:"이사",note:""});setEditing(null);setModal(true);}}>＋ 할 일 추가</button></div> : taskEntries.map(entry=><article className={"entry-card list-entry-card "+(entry.done?"completed":"")} key={entry.id}><div className="entry-content"><div className="entry-toolbar"><div className="entry-meta"><span className="kind-pill task">할 일</span><span className={"assignee meta-assignee "+(entry.assignee==="함께"?"together":entry.assignee==="배우자"?"partner":"me")}><i></i>{entry.assignee==="나"?myDisplayName:entry.assignee==="배우자"?partnerDisplayName:entry.assignee}</span><span className="category-label category-chip" style={categoryStyle(entry)}>{categoryFor(entry)?.name || entry.category}</span></div><div className="entry-actions"><button className="done-toggle" onClick={()=>void toggleDone(entry)}>{entry.done?"완료 취소":"완료 체크"}</button><button className="icon-action" onClick={()=>openEdit(entry)} aria-label="수정">✎</button><button className="icon-action" onClick={()=>remove(entry.id)} aria-label="삭제">×</button></div></div><div className="list-entry-date">{new Date(entry.date+"T12:00:00").toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric",weekday:"short"})}</div><button className="entry-title" onClick={()=>openEdit(entry)}>{entry.title}</button>{entry.note&&<p className="entry-note">{entry.note}</p>}</div></article>)}</div>
             </section>
           </div>
         </section>
@@ -566,9 +616,10 @@ export default function App() {
       {bulkImportError&&<div className="auth-error">{bulkImportError}</div>}
       <label className="field-label">할 일 목록<textarea required rows={8} value={bulkImportText} onChange={e=>setBulkImportText(e.target.value)} placeholder={"예:\n2026-10-25 | 이사 박스 정리\n관리사무소에 연락하기\n전입신고 준비"} /></label>
       <label className="field-label">날짜가 없는 항목의 기본 날짜<input type="date" required value={bulkImportDate} onChange={e=>setBulkImportDate(e.target.value)} /></label>
-      <label className="field-label">담당자<select value={bulkImportAssignee} onChange={e=>setBulkImportAssignee(e.target.value as Assignee)}><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option><option value="함께">함께</option></select></label>
+      <label className="field-label">카테고리<select required value={bulkImportCategory} onChange={e=>setBulkImportCategory(e.target.value)}>{activeCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="field-label">담당자<select value={bulkImportAssignee> onChange={e=>setBulkImportAssignee(e.target.value as Assignee)}><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option><option value="함께">함께</option></select></label>
       <div className="modal-actions"><button type="button" className="cancel-button" disabled={bulkImportBusy} onClick={()=>setBulkImportOpen(false)}>취소</button><button type="submit" className="save-button" disabled={bulkImportBusy}>{bulkImportBusy?"추가 중…":"할 일 추가하기"}</button></div>
     </form></div>}
+    {categoryManagerOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!categoryBusy)setCategoryManagerOpen(false);}}><section className="entry-modal category-manager-modal"><div className="modal-heading"><div><div className="eyebrow">SHARED CATEGORIES</div><h2>카테고리 관리</h2></div><button type="button" className="close-modal" onClick={()=>setCategoryManagerOpen(false)} aria-label="닫기" disabled={categoryBusy}>×</button></div><p className="settings-description">일정과 할 일에서 함께 사용하는 카테고리입니다. 보관해도 기존 항목의 이름과 색상은 유지됩니다.</p><form onSubmit={saveCategory} className="category-editor"><label className="field-label">카테고리 이름<input required maxLength={20} value={categoryName} onChange={e=>setCategoryName(e.target.value)} placeholder="예: 일상"/></label><div className="field-label">색상<div className="category-color-options">{["#91ad91","#c99c7c","#9d97c7","#819cc3","#d79ca8","#d1ad5c","#7faeaa","#b6b9ad"].map(color=><button type="button" key={color} aria-label={`색상 ${color}`} className={`category-color-option ${categoryColor===color?"selected":""}`} style={{backgroundColor:color}} onClick={()=>setCategoryColor(color)}/>)}</div></div><div className="modal-actions"><button type="button" className="cancel-button" onClick={resetCategoryEditor}>{editingCategory?"수정 취소":"초기화"}</button><button type="submit" className="save-button" disabled={categoryBusy}>{categoryBusy?"저장 중…":editingCategory?"카테고리 수정":"카테고리 추가"}</button></div></form>{categoryError&&<div className="auth-error">{categoryError}</div>}<div className="category-manager-list">{categories.map(category=><div className={`category-manager-item ${category.is_archived?"archived":""}`} key={category.id}><span className="category-manager-swatch" style={{backgroundColor:category.color}}/><strong>{category.name}</strong>{category.is_archived&&<small>보관됨</small>}<div><button type="button" onClick={()=>startEditCategory(category)}>수정</button><button type="button" disabled={categoryBusy} onClick={()=>void toggleCategoryArchive(category)}>{category.is_archived?"복원":"보관"}</button></div></div>)}</div><div className="modal-actions"><button type="button" className="cancel-button" onClick={()=>setCategoryManagerOpen(false)}>닫기</button></div></section></div>}
     {memberNamesOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setMemberNamesOpen(false);}}><form className="entry-modal" onSubmit={saveMemberNames}><div className="modal-heading"><div><div className="eyebrow">SHARED CALENDAR</div><h2>담당자 이름 설정</h2></div><button type="button" className="close-modal" onClick={()=>setMemberNamesOpen(false)} aria-label="닫기">×</button></div>
       
       {memberNamesError&&<div className="auth-error">{memberNamesError}</div>}
@@ -590,7 +641,7 @@ export default function App() {
       <label className="field-label">무엇을 할까요?<input autoFocus required maxLength={80} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="예: 이사 체크리스트 확인"/></label>
       <div className="field-grid"><label className="field-label">날짜<input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className="field-label">시간 <span className="optional">(선택)</span><input value={form.time} onChange={e=>setForm({...form,time:e.target.value})} placeholder="예: 10:00"/></label></div>
       <div className="field-label">항목 유형<div className="choice-row">{(["일정","할 일"] as Kind[]).map(k=><button type="button" key={k} className={form.kind===k?"chosen":""} onClick={()=>setForm({...form,kind:k})}>{k==="일정"?"▦":"✓"} {k}</button>)}</div></div>
-      <label className="field-label">담당자<select value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value as Assignee})}><option value="함께">함께</option><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option></select></label>
+      <label className="field-label">카테고리<select required value={form.categoryId || ""} onChange={e=>{const category=activeCategories.find(item=>item.id===e.target.value);setForm({...form,category:category?.name || "기타",categoryId:category?.id});}}>{activeCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}{editing && categoryFor(editing)?.is_archived && <option value={editing.categoryId}>{editing.category} (보관됨)</option>}</select></label><label className="field-label">담당자<select value={form.assignee> onChange={e=>setForm({...form,assignee:e.target.value as Assignee})}><option value="함께">함께</option><option value="나">{myDisplayName}</option><option value="배우자">{partnerDisplayName}</option></select></label>
       <label className="field-label">메모 <span className="optional">(선택)</span><textarea rows={3} maxLength={1000} value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="함께 기억할 내용을 적어두세요."/><span className="character-count">{form.note.length.toLocaleString("ko-KR")}/1,000자</span></label>
       {saveError&&<div className="save-feedback save-feedback-error" role="alert"><strong>저장 실패</strong><span>{saveError}</span></div>}
       {saveBusy&&<div className="save-feedback save-feedback-pending" role="status"><span className="save-spinner" aria-hidden="true"></span><span><strong>저장 중입니다...</strong><small>완료될 때까지 팝업을 닫지 말아 주세요.</small></span></div>}
