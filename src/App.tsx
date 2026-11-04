@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isCloudConfigured } from "./lib/supabase";
 
@@ -152,6 +152,7 @@ export default function App() {
       if (error) { setCloudError("일정을 불러오지 못했어요. 네트워크와 Supabase 설정을 확인해 주세요."); return; }
       const loadedCategories = (categoryRows || []) as Category[];
       setCategories(loadedCategories);
+      setBulkImportCategory(current => current || loadedCategories.find(category => !category.is_archived)?.id || "");
       const categoryById = new Map(loadedCategories.map(category => [category.id, category]));
       const cloudEntries: Entry[] = (data || []).map((row: any) => ({
         id: String(row.id), title: row.title, date: row.date, time: row.time || "",
@@ -379,7 +380,7 @@ export default function App() {
   };
   const activeCategories = categories.filter(category => !category.is_archived);
   const categoryFor = (entry: Entry) => categories.find(category => category.id === entry.categoryId) || categories.find(category => category.name === entry.category);
-  const categoryStyle = (entry: Entry) => ({ "--category-color": categoryFor(entry)?.color || "#b6b9ad" } as React.CSSProperties);
+  const categoryStyle = (entry: Entry) => ({ "--category-color": categoryFor(entry)?.color || "#b6b9ad" } as CSSProperties);
   const monthLabel = month.getFullYear() + "년 " + (month.getMonth() + 1) + "월";
   const calendarDays = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
