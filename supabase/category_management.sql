@@ -74,14 +74,12 @@ create or replace function public.sync_entry_category_id()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare resolved_category public.calendar_categories%rowtype; legacy_name text;
 begin
-  if new.category_id is not null and (
-    tg_op = 'INSERT'
-    or new.category_id is distinct from old.category_id
-    or new.category is not distinct from old.category
-  ) then
+  if new.category_id is not null then
     select * into resolved_category from public.calendar_categories where household_id=new.household_id and id=new.category_id;
     if not found then raise exception '선택한 카테고리를 찾을 수 없습니다.'; end if;
-    new.category:=resolved_category.name; return new;
+    if tg_op = 'INSERT' or new.category_id is distinct from old.category_id or new.category = resolved_category.name then
+      new.category:=resolved_category.name; return new;
+    end if;
   end if;
   legacy_name:=trim(coalesce(nullif(new.category,''),'기타'));
   select * into resolved_category from public.calendar_categories where household_id=new.household_id and name=legacy_name;
@@ -104,3 +102,21 @@ begin
   end if;
 exception when undefined_object then null;
 end $$;
+
+
+-- Keep the legacy text column aligned when a category is renamed.
+create or replace function public.sync_category_name_to_entries()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if new.name is distinct from old.name then
+    update public.entries
+    set category = new.name
+    where household_id = new.household_id and category_id = new.id;
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists calendar_category_sync_entry_names on public.calendar_categories;
+create trigger calendar_category_sync_entry_names
+after update of name on public.calendar_categories
+for each row execute function public.sync_category_name_to_entries();
