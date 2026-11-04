@@ -4,7 +4,7 @@
 create table if not exists public.calendar_categories (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
-  name text not null check (length(trim(name)) between 1 and 100),
+  name text not null check (length(trim(name)) >= 1),
   color text not null default '#b6b9ad' check (color ~ '^#[0-9A-Fa-f]{6}$'),
   sort_order integer not null default 0,
   is_archived boolean not null default false,
