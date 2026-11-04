@@ -50,7 +50,7 @@ begin
   if not exists (select 1 from pg_constraint where conname='entries_household_category_fk') then
     alter table public.entries add constraint entries_household_category_fk
       foreign key (household_id, category_id)
-      references public.calendar_categories (household_id, id) on delete restrict;
+      references public.calendar_categories (household_id, id) on delete cascade;
   end if;
 end $$;
 
@@ -74,7 +74,11 @@ create or replace function public.sync_entry_category_id()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare resolved_category public.calendar_categories%rowtype; legacy_name text;
 begin
-  if new.category_id is not null then
+  if new.category_id is not null and (
+    tg_op = 'INSERT'
+    or new.category_id is distinct from old.category_id
+    or new.category is not distinct from old.category
+  ) then
     select * into resolved_category from public.calendar_categories where household_id=new.household_id and id=new.category_id;
     if not found then raise exception '선택한 카테고리를 찾을 수 없습니다.'; end if;
     new.category:=resolved_category.name; return new;
